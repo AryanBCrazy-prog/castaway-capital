@@ -53,6 +53,14 @@
       transform-style: preserve-3d;
       transition: transform 0.4s ease;
     }
+
+    @keyframes soundwave-pulse {
+      0%, 100% { height: 5px; opacity: 0.6; }
+      50% { height: 16px; opacity: 1; }
+    }
+    .soundwave-active span:nth-child(1) { animation: soundwave-pulse 0.4s infinite ease-in-out; }
+    .soundwave-active span:nth-child(2) { animation: soundwave-pulse 0.5s infinite ease-in-out 0.15s; }
+    .soundwave-active span:nth-child(3) { animation: soundwave-pulse 0.45s infinite ease-in-out 0.3s; }
   </style>
 </head>
 <body class="bg-slate-950 text-slate-100 h-screen w-screen overflow-hidden select-none">
@@ -189,6 +197,36 @@
           <div class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Lap Circuit</div>
           <div id="lap-counter" class="text-sm font-extrabold text-amber-400 font-mono">Lap #1</div>
         </div>
+      </div>
+
+      <!-- Sarvam AI Island Radio Announcer Widget -->
+      <div id="sarvam-radio-widget" class="flex items-center gap-2.5 bg-slate-900/90 border border-purple-500/40 px-3 py-1.5 rounded-xl shadow-lg shadow-purple-950/30">
+        <div id="sarvam-soundwave" class="flex items-center gap-1 h-5 w-4 justify-center" title="Sarvam AI Audio Status">
+          <span class="w-1 h-2 bg-purple-400 rounded-full transition-all"></span>
+          <span class="w-1 h-3.5 bg-purple-300 rounded-full transition-all"></span>
+          <span class="w-1 h-2 bg-purple-400 rounded-full transition-all"></span>
+        </div>
+        <div class="flex flex-col">
+          <span class="text-[9px] uppercase tracking-wider text-purple-300 font-extrabold flex items-center gap-1">
+            🎙️ Sarvam AI Announcer
+          </span>
+          <select id="sarvam-speaker-select" class="bg-purple-950/80 text-[10px] font-bold text-purple-100 border border-purple-800/60 outline-none rounded px-1.5 py-0.5 cursor-pointer hover:border-purple-500">
+            <option value="shubh|en-IN">Shubh (Dramatic Host)</option>
+            <option value="ashwin_en_sports_energetic|en-IN">Ashwin (Energetic Sports)</option>
+            <option value="ritu|en-IN">Ritu (Island Guide)</option>
+            <option value="aditya|en-IN">Aditya (Ministry Overseer)</option>
+            <option value="priya|en-IN">Priya (Calm Dispatch)</option>
+            <option value="shubh|hi-IN">Shubh (हिंदी Commentary)</option>
+            <option value="ritu|hi-IN">Ritu (हिंदी Radio)</option>
+          </select>
+        </div>
+        <button id="sarvam-radio-toggle" title="Toggle Voice Announcer" class="px-2 py-1 rounded-lg text-[10px] font-mono font-bold bg-purple-600 hover:bg-purple-500 text-white transition active:scale-95">
+          ON
+        </button>
+        <button id="sarvam-broadcast-btn" title="Hear Live Island Radio Bulletin" class="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white flex items-center gap-1 transition shadow-sm active:scale-95">
+          <i data-lucide="radio" class="w-3 h-3"></i>
+          <span>Bulletin</span>
+        </button>
       </div>
 
       <!-- Control Toggles -->
@@ -355,6 +393,94 @@
         osc.start();
         osc.stop(audioCtx.currentTime + duration);
       } catch (e) {}
+    }
+
+    // =========================================================================
+    // SARVAM AI VOICE ANNOUNCER & BULBUL AUDIO ENGINE
+    // =========================================================================
+    const sarvamState = {
+      enabled: true,
+      speaker: "shubh",
+      lang: "en-IN",
+      isPlaying: false,
+      audioQueue: [],
+      currentAudio: null
+    };
+
+    function playSarvamAudio(base64Audio) {
+      if (!sarvamState.enabled || !base64Audio) return;
+      try {
+        const waveEl = document.getElementById('sarvam-soundwave');
+        if (waveEl) waveEl.classList.add('soundwave-active');
+
+        const audio = new Audio("data:audio/wav;base64," + base64Audio);
+        sarvamState.currentAudio = audio;
+
+        audio.onended = () => {
+          sarvamState.isPlaying = false;
+          if (waveEl) waveEl.classList.remove('soundwave-active');
+          if (sarvamState.audioQueue.length > 0) {
+            const nextAudio = sarvamState.audioQueue.shift();
+            playSarvamAudio(nextAudio);
+          }
+        };
+
+        audio.onerror = () => {
+          sarvamState.isPlaying = false;
+          if (waveEl) waveEl.classList.remove('soundwave-active');
+          if (sarvamState.audioQueue.length > 0) {
+            const nextAudio = sarvamState.audioQueue.shift();
+            playSarvamAudio(nextAudio);
+          }
+        };
+
+        sarvamState.isPlaying = true;
+        audio.play().catch(e => {
+          sarvamState.isPlaying = false;
+          if (waveEl) waveEl.classList.remove('soundwave-active');
+        });
+      } catch (e) {
+        sarvamState.isPlaying = false;
+        const waveEl = document.getElementById('sarvam-soundwave');
+        if (waveEl) waveEl.classList.remove('soundwave-active');
+      }
+    }
+
+    async function triggerSarvamTTS(text, overrideSpeaker, overrideLang) {
+      if (!sarvamState.enabled || !text) return;
+      const speaker = overrideSpeaker || sarvamState.speaker;
+      const lang = overrideLang || sarvamState.lang;
+
+      try {
+        const res = await fetch('/api/tts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text, speaker, language_code: lang })
+        });
+        const data = await res.json();
+        if (data.status === 'ok' && data.audio) {
+          if (sarvamState.isPlaying) {
+            sarvamState.audioQueue.push(data.audio);
+          } else {
+            playSarvamAudio(data.audio);
+          }
+        }
+      } catch (err) {
+        console.warn("Sarvam TTS request warning:", err);
+      }
+    }
+
+    function handleVoiceAnnouncement(data) {
+      if (!sarvamState.enabled) return;
+      if (data.audio) {
+        if (sarvamState.isPlaying) {
+          sarvamState.audioQueue.push(data.audio);
+        } else {
+          playSarvamAudio(data.audio);
+        }
+      } else if (data.text) {
+        triggerSarvamTTS(data.text);
+      }
     }
   </script>
 
@@ -774,6 +900,8 @@
             applyServerState(data);
           } else if (data.type === "dice_rolled") {
             handleDiceRollEvent(data);
+          } else if (data.type === "voice_announcement") {
+            handleVoiceAnnouncement(data);
           } else if (data.type === "chat_message") {
             addChatMessage(data.chat);
           } else if (data.type === "error") {
@@ -1023,6 +1151,7 @@
         curPlayer.notes[20]  = (curPlayer.notes[20]  || 0) + 2;
         curPlayer.notes[10]  = (curPlayer.notes[10]  || 0) + 1;
         logClientEvent(`🏕️ ${curPlayer.name} completed a lap and collected $200 Salary notes (1x 100, 1x 50, 2x 20, 1x 10)!`);
+        triggerSarvamTTS(`${curPlayer.name} completed a lap and collected two hundred credits salary.`);
       }
 
       const landed = gameState.tiles[curPlayer.pos];
@@ -1061,6 +1190,7 @@
             if (curPlayer.capital < 0) {
               curPlayer.isBankrupt = true;
               logClientEvent(`💀 ${curPlayer.name} went BANKRUPT and was eliminated!`);
+              triggerSarvamTTS(`Survivor eliminated! ${curPlayer.name} is bankrupt and leaves the island.`);
             }
           }
         }
@@ -1070,6 +1200,7 @@
           spendPlayerCash(curPlayer, landed.cost);
           gameState.financeManagerId = curPlayer.id;
           logClientEvent(`🏛️ ${curPlayer.name} acquired the FINANCE MANAGER LICENSE (5% royalties on all rents & loans)!`);
+          triggerSarvamTTS(`Notice! ${curPlayer.name} has acquired the Finance Manager license. Tolls active island-wide.`, 'aditya');
         }
       } else if (landed.type === "EVENT") {
         triggerClientEvent(curPlayer);
@@ -1113,16 +1244,22 @@
           if (owned.length > 0) {
             owned[0].state = "RUINED";
             logClientEvent(`⚡ Cyclone devastated ${owned[0].name} into [RUINED]!`);
+            triggerSarvamTTS(`Emergency Alert! A tropical cyclone has devastated ${owned[0].name} into ruins!`, 'shubh');
+          } else {
+            logClientEvent(`⚡ Offshore gale winds blew harmlessly past the island.`);
+            triggerSarvamTTS(`Offshore gale winds blew harmlessly past the island.`, 'shubh');
           }
         },
         () => {
           player.capital += 150;
           addPlayerCash(player, 150);
           logClientEvent(`📦 ${player.name} salvaged a floating cargo crate with +$150 Capital!`);
+          triggerSarvamTTS(`Salvage Alert! ${player.name} salvaged a floating shipping crate with 150 credits!`, 'shubh');
         },
         () => {
           gameState.players.forEach(p => { p.capital = Math.max(0, p.capital - 40); spendPlayerCash(p, 40); });
           logClientEvent(`🦟 Ration Spoilage: All survivors paid $40 in emergency supplies.`);
+          triggerSarvamTTS(`Medical Emergency! Ration spoilage reported. Each survivor paid 40 credits.`, 'shubh');
         }
       ];
       cards[Math.floor(Math.random() * cards.length)]();
@@ -1308,6 +1445,50 @@
       }
       input.value = '';
     }
+
+    // Sarvam AI UI Event Listeners
+    document.getElementById('sarvam-radio-toggle').addEventListener('click', () => {
+      sarvamState.enabled = !sarvamState.enabled;
+      const btn = document.getElementById('sarvam-radio-toggle');
+      btn.textContent = sarvamState.enabled ? "ON" : "OFF";
+      btn.className = sarvamState.enabled 
+        ? "px-2 py-1 rounded-lg text-[10px] font-mono font-bold bg-purple-600 hover:bg-purple-500 text-white transition active:scale-95"
+        : "px-2 py-1 rounded-lg text-[10px] font-mono font-bold bg-slate-800 text-slate-400 hover:text-white transition active:scale-95";
+      if (!sarvamState.enabled && sarvamState.currentAudio) {
+        sarvamState.currentAudio.pause();
+        sarvamState.audioQueue = [];
+        sarvamState.isPlaying = false;
+        document.getElementById('sarvam-soundwave').classList.remove('soundwave-active');
+      }
+    });
+
+    document.getElementById('sarvam-speaker-select').addEventListener('change', (e) => {
+      const parts = e.target.value.split('|');
+      sarvamState.speaker = parts[0];
+      sarvamState.lang = parts[1] || "en-IN";
+      triggerSarvamTTS(`Sarvam AI voice tuned to ${sarvamState.speaker}.`, sarvamState.speaker, sarvamState.lang);
+    });
+
+    document.getElementById('sarvam-broadcast-btn').addEventListener('click', () => {
+      if (gameState.isOnline && ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({
+          type: "request_broadcast",
+          speaker: sarvamState.speaker,
+          language_code: sarvamState.lang
+        }));
+      } else {
+        const active = gameState.players.filter(p => !p.isBankrupt);
+        const leader = active.reduce((max, p) => p.capital > max.capital ? p : max, active[0]);
+        const ruined = gameState.tiles.filter(t => t.state === "RUINED").length;
+        let bText = "";
+        if (sarvamState.lang === "hi-IN") {
+          bText = `कास्टअवे कैपिटल रेडियो बुलेटिन! राउंड ${gameState.round} जारी है। ${leader.name} ${leader.capital} क्रेडिट्स के साथ आगे हैं। द्वीप पर ${ruined} क्षेत्र खंडहर बन चुके हैं।`;
+        } else {
+          bText = `Castaway Capital radio bulletin! Lap #${gameState.round} underway. ${leader.name} leads with ${leader.capital} credits. ${ruined} sectors are ruined.`;
+        }
+        triggerSarvamTTS(bText);
+      }
+    });
 
     // Camera presets
     document.getElementById('camera-select').addEventListener('change', (e) => {

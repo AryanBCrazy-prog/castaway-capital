@@ -6,6 +6,7 @@ import string
 import socket
 import webbrowser
 from pathlib import Path
+from dotenv import load_dotenv
 
 # Force UTF-8 stdout on Windows
 if sys.platform == "win32":
@@ -19,6 +20,63 @@ import tornado.web
 import tornado.websocket
 
 PROJECT_DIR = Path(__file__).parent.resolve()
+
+# Load environment variables (.env)
+load_dotenv(PROJECT_DIR / ".env")
+load_dotenv()
+
+# Sarvam AI Initialization
+SARVAM_API_KEY = os.environ.get("SARVAM_API_KEY", "").strip()
+sarvam_client = None
+if SARVAM_API_KEY:
+    try:
+        from sarvamai import SarvamAI
+        sarvam_client = SarvamAI(api_subscription_key=SARVAM_API_KEY)
+        print(">> Sarvam AI Voice Engine initialized successfully.")
+    except Exception as e:
+        print(f">> Warning: Failed to initialize SarvamAI client: {e}")
+else:
+    print(">> Note: SARVAM_API_KEY not found in environment. TTS will run in mock/silent mode.")
+
+# In-memory audio cache: (text, language_code, speaker) -> base64 audio
+TTS_CACHE = {}
+
+def synthesize_voice(text, language_code="en-IN", speaker="shubh"):
+    """Synthesize voice using Sarvam AI Bulbul TTS with memory caching."""
+    if not sarvam_client or not text:
+        return None
+    cache_key = (text.strip(), language_code, speaker)
+    if cache_key in TTS_CACHE:
+        return TTS_CACHE[cache_key]
+
+    try:
+        # Try bulbul:v4-flash first
+        res = sarvam_client.text_to_speech.convert(
+            text=text.strip(),
+            language_code=language_code,
+            speaker=speaker,
+            model="bulbul:v4-flash"
+        )
+        if res.audios and len(res.audios) > 0:
+            TTS_CACHE[cache_key] = res.audios[0]
+            return res.audios[0]
+    except Exception as e:
+        # Fallback to bulbul:v3 with compatible speaker
+        try:
+            fallback_speaker = "shubh" if language_code == "en-IN" else "ritu"
+            res = sarvam_client.text_to_speech.convert(
+                text=text.strip(),
+                language_code=language_code,
+                speaker=fallback_speaker,
+                model="bulbul:v3"
+            )
+            if res.audios and len(res.audios) > 0:
+                TTS_CACHE[cache_key] = res.audios[0]
+                return res.audios[0]
+        except Exception as e2:
+            print(f">> Sarvam TTS Error: {e2}")
+            return None
+    return None
 
 def find_available_port(start_port=8080, max_attempts=10):
     for port in range(start_port, start_port + max_attempts):
@@ -238,6 +296,14 @@ class GameRoom:
                     if player["capital"] < 0:
                         player["is_bankrupt"] = True
                         self.log_event(f"💀 {player['name']} went BANKRUPT and was eliminated!")
+                        voice_text = f"Survivor eliminated! {player['name']} has declared bankruptcy and leaves the island."
+                        audio = synthesize_voice(voice_text, "en-IN", "shubh")
+                        self.broadcast({
+                            "type": "voice_announcement",
+                            "text": voice_text,
+                            "category": "bankruptcy",
+                            "audio": audio
+                        })
                         self.check_win()
 
         elif landed_tile["type"] == "LICENSE":
@@ -246,6 +312,16 @@ class GameRoom:
                 self.spend_notes(player, landed_tile["cost"])
                 self.finance_manager_id = player["id"]
                 self.log_event(f"🏛️ {player['name']} acquired the FINANCE MANAGER LICENSE (5% royalties on all rents & loans)!")
+                
+                # Voice announcement
+                voice_text = f"Notice! {player['name']} has acquired the Ministry of Finance license. A five percent toll is now active across the island."
+                audio = synthesize_voice(voice_text, "en-IN", "aditya")
+                self.broadcast({
+                    "type": "voice_announcement",
+                    "text": voice_text,
+                    "category": "license",
+                    "audio": audio
+                })
 
         elif landed_tile["type"] == "EVENT":
             self.trigger_calamity(player)
@@ -256,6 +332,16 @@ class GameRoom:
         card = self.calamity_deck.pop(0)
         self.calamity_deck.append(card)
         self.log_event(f"⚡ Calamity: {card['title']} - {card['desc']}")
+
+        # Voice broadcast of island calamity
+        voice_text = f"Emergency Alert! {card['title']}. {card['desc']}"
+        audio = synthesize_voice(voice_text, "en-IN", "shubh")
+        self.broadcast({
+            "type": "voice_announcement",
+            "text": voice_text,
+            "category": "calamity",
+            "audio": audio
+        })
 
         if card["type"] == "RUIN_COASTAL":
             for t in self.tiles:
@@ -277,6 +363,23 @@ class GameRoom:
                 if not p["is_bankrupt"]:
                     p["capital"] = max(0, p["capital"] - 50)
                     self.spend_notes(p, 50)
+
+    def generate_radio_broadcast(self, lang="en-IN", speaker="ashwin_en_sports_energetic"):
+        active = [p for p in self.slots if not p["is_bankrupt"]]
+        if not active:
+            return None
+        leader = max(active, key=lambda p: p["capital"])
+        ruined_count = sum(1 for t in self.tiles if t["state"] == "RUINED")
+
+        if lang == "hi-IN":
+            text = f"कास्टअवे कैपिटल रेडियो बुलेटिन! राउंड {self.round} जारी है। {leader['name']} {leader['capital']} क्रेडिट्स के साथ आगे हैं। द्वीप पर {ruined_count} क्षेत्र खंडहर बन चुके हैं।"
+            voice_spk = "shubh" if speaker == "shubh" else "ritu"
+        else:
+            text = f"Castaway Capital radio bulletin! Lap #{self.round} underway. {leader['name']} leads the island with {leader['capital']} credits. {ruined_count} sectors are currently ruined."
+            voice_spk = speaker
+
+        audio = synthesize_voice(text, lang, voice_spk)
+        return {"text": text, "audio": audio, "lang": lang, "speaker": voice_spk}
 
     def spend_notes(self, player, amount):
         rem = amount
@@ -304,7 +407,16 @@ class GameRoom:
         if len(active) <= 1:
             self.game_over = True
             self.winner_id = active[0]["id"] if active else -1
-            self.log_event(f"🏆 VICTORY! {active[0]['name']} is the last survivor standing!")
+            winner_name = active[0]["name"] if active else "Nobody"
+            self.log_event(f"🏆 VICTORY! {winner_name} is the last survivor standing!")
+            voice_text = f"Game Over! Victory belongs to {winner_name}, the supreme survivor of Castaway Capital!"
+            audio = synthesize_voice(voice_text, "en-IN", "ashwin_en_sports_energetic")
+            self.broadcast({
+                "type": "voice_announcement",
+                "text": voice_text,
+                "category": "victory",
+                "audio": audio
+            })
 
     def step_bot_turn(self):
         if self.game_over:
@@ -474,6 +586,20 @@ class GameWebSocketHandler(tornado.websocket.WebSocketHandler):
                             room.log_event(f"🔧 {player['name']} repaired {tile['name']} to [PRISTINE] for ${tile['repairCost']}!")
                             room.broadcast(room.get_public_state())
 
+            elif msg_type == "request_broadcast":
+                if self.room_code in ROOMS:
+                    room = ROOMS[self.room_code]
+                    lang = data.get("language_code", "en-IN")
+                    speaker = data.get("speaker", "ashwin_en_sports_energetic")
+                    bulletin = room.generate_radio_broadcast(lang=lang, speaker=speaker)
+                    if bulletin:
+                        room.broadcast({
+                            "type": "voice_announcement",
+                            "text": bulletin["text"],
+                            "category": "radio_bulletin",
+                            "audio": bulletin["audio"]
+                        })
+
             elif msg_type == "send_chat":
                 if self.room_code in ROOMS:
                     room = ROOMS[self.room_code]
@@ -500,10 +626,100 @@ class GameWebSocketHandler(tornado.websocket.WebSocketHandler):
                 room.broadcast(room.get_public_state())
 
 
+class TTSHandler(tornado.web.RequestHandler):
+    def set_default_headers(self):
+        self.set_header("Access-Control-Allow-Origin", "*")
+        self.set_header("Access-Control-Allow-Methods", "POST, GET, OPTIONS")
+        self.set_header("Access-Control-Allow-Headers", "Content-Type")
+
+    def options(self):
+        self.set_status(204)
+        self.finish()
+
+    def post(self):
+        try:
+            data = json.loads(self.request.body) if self.request.body else {}
+        except Exception:
+            data = {}
+
+        text = data.get("text", "").strip()
+        lang = data.get("language_code", "en-IN")
+        speaker = data.get("speaker", "shubh")
+
+        if not text:
+            self.set_status(400)
+            self.write({"status": "error", "message": "Missing text parameter"})
+            return
+
+        audio = synthesize_voice(text, language_code=lang, speaker=speaker)
+        if audio:
+            self.write({
+                "status": "ok",
+                "audio": audio,
+                "text": text,
+                "speaker": speaker,
+                "language_code": lang
+            })
+        else:
+            self.write({
+                "status": "unavailable",
+                "message": "Sarvam AI TTS is unavailable or failed to generate audio.",
+                "text": text
+            })
+
+    def get(self):
+        text = self.get_argument("text", "").strip()
+        lang = self.get_argument("lang", "en-IN")
+        speaker = self.get_argument("speaker", "shubh")
+
+        if not text:
+            self.set_status(400)
+            self.write({"status": "error", "message": "Missing text parameter"})
+            return
+
+        audio = synthesize_voice(text, language_code=lang, speaker=speaker)
+        if audio:
+            self.write({
+                "status": "ok",
+                "audio": audio,
+                "text": text,
+                "speaker": speaker,
+                "language_code": lang
+            })
+        else:
+            self.write({
+                "status": "unavailable",
+                "message": "Sarvam AI TTS is unavailable or failed to generate audio.",
+                "text": text
+            })
+
+
+class TTSStatusHandler(tornado.web.RequestHandler):
+    def get(self):
+        self.set_header("Access-Control-Allow-Origin", "*")
+        voices = [
+            {"id": "shubh", "name": "🎙️ Shubh (Dramatic Radio Host)", "lang": "en-IN"},
+            {"id": "ashwin_en_sports_energetic", "name": "⚡ Ashwin (Energetic Sportscaster)", "lang": "en-IN"},
+            {"id": "ritu", "name": "🌺 Ritu (Lively Island Guide)", "lang": "en-IN"},
+            {"id": "aditya", "name": "🏛️ Aditya (Ministry Overseer)", "lang": "en-IN"},
+            {"id": "priya", "name": "🧭 Priya (Calm Island Dispatch)", "lang": "en-IN"},
+            {"id": "shubh_hi", "name": "🎙️ Shubh (Hindi Commentary हिंदी)", "lang": "hi-IN", "speaker": "shubh"},
+            {"id": "ritu_hi", "name": "🌺 Ritu (Hindi Radio हिंदी)", "lang": "hi-IN", "speaker": "ritu"}
+        ]
+        self.write({
+            "status": "ok",
+            "available": bool(sarvam_client),
+            "engine": "Sarvam AI Bulbul (v4-flash / v3)",
+            "voices": voices
+        })
+
+
 def make_app():
     return tornado.web.Application([
         (r"/", MainHandler),
         (r"/health", HealthHandler),
+        (r"/api/tts", TTSHandler),
+        (r"/api/tts/status", TTSStatusHandler),
         (r"/export_state.json", StateExportHandler),
         (r"/ws", GameWebSocketHandler),
         (r"/(.*)", tornado.web.StaticFileHandler, {"path": str(PROJECT_DIR)})
