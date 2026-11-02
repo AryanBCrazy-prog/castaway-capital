@@ -4,8 +4,22 @@
 [![Three.js](https://img.shields.io/badge/3D%20Engine-Three.js%20r128-black.svg)](https://threejs.org/)
 [![Multiplayer](https://img.shields.io/badge/Networking-WebSockets%20Realtime-green.svg)](https://www.tornadoweb.org/)
 [![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/template)
+[![Sarvam AI Voice Edition](https://img.shields.io/badge/AI%20Voice%20Branch-sarvam--ai-purple.svg)](https://github.com/AryanBCrazy-prog/castaway-capital/tree/sarvam-ai)
+
+> 🎙️ **NEW: Sarvam AI Voice Announcer Edition Available!**  
+> Check out the dedicated **[`sarvam-ai`](https://github.com/AryanBCrazy-prog/castaway-capital/tree/sarvam-ai)** branch for real-time Text-to-Speech narration powered by **Sarvam AI Bulbul**, multilingual Indian commentary (English & Hindi), synchronized calamity radio alerts, and dynamic leaderboard analysis!  
+> Switch to it locally with: `git checkout sarvam-ai`
 
 An interactive, turn-based survival-monopoly simulation engine and online multiplayer game. Features an authoritative real-time WebSocket game server, room-code matchmaking, realistic physical note currency mechanics, and a 3D Three.js WebGL island board.
+
+---
+
+## 🌿 Available Branches
+
+| Branch | Description | Key Capabilities |
+| :--- | :--- | :--- |
+| **[`main`](https://github.com/AryanBCrazy-prog/castaway-capital)** | Core 3D multiplayer WebSocket game engine | C++20 engine, Three.js 3D board, 7 physical denominations, AI heuristic bots, room matchmaking |
+| **[`sarvam-ai`](https://github.com/AryanBCrazy-prog/castaway-capital/tree/sarvam-ai)** | Sarvam AI Bulbul TTS voice integration | Real-time Indian English & Hindi voice announcer, radio bulletin, audio caching (<1ms), soundwave visualizer |
 
 ---
 
