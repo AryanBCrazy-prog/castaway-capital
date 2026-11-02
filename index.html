@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Castaway Capital: Island of Ruin - Online Multiplayer 3D</title>
+  <title>Castaway Capital: Island of Ruin - 3D Multiplayer Game</title>
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- Lucide Icons -->
@@ -25,7 +25,7 @@
     ::-webkit-scrollbar-thumb:hover { background: rgba(148, 163, 184, 0.8); }
 
     .glass-panel {
-      background: rgba(15, 23, 42, 0.82);
+      background: rgba(15, 23, 42, 0.85);
       backdrop-filter: blur(16px);
       -webkit-backdrop-filter: blur(16px);
       border: 1px solid rgba(255, 255, 255, 0.08);
@@ -70,7 +70,9 @@
         <div>
           <h2 class="text-xl font-extrabold text-white tracking-tight flex items-center gap-2">
             Castaway Capital
-            <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 uppercase tracking-widest">Online</span>
+            <span id="server-status-pill" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 uppercase tracking-widest">
+              Ready
+            </span>
           </h2>
           <p class="text-xs text-slate-400">Survival-Monopoly 3D • Multi-Player Live Server</p>
         </div>
@@ -78,13 +80,23 @@
 
       <!-- Navigation Tabs -->
       <div class="flex border-b border-slate-800 mb-5 text-sm">
-        <button id="tab-create" class="flex-1 py-2 font-bold text-orange-400 border-b-2 border-orange-500 transition">Create Room</button>
+        <button id="tab-solo" class="flex-1 py-2 font-bold text-emerald-400 border-b-2 border-emerald-500 transition">Solo vs Bots</button>
+        <button id="tab-create" class="flex-1 py-2 font-medium text-slate-400 hover:text-slate-200 transition">Create Room</button>
         <button id="tab-join" class="flex-1 py-2 font-medium text-slate-400 hover:text-slate-200 transition">Join Room</button>
-        <button id="tab-solo" class="flex-1 py-2 font-medium text-slate-400 hover:text-slate-200 transition">Solo vs Bots</button>
       </div>
 
-      <!-- Tab Content 1: Create Room -->
-      <div id="view-create" class="space-y-4">
+      <!-- Tab Content 1: Solo vs Bots (Default, Instant Play) -->
+      <div id="view-solo" class="space-y-4">
+        <p class="text-xs text-slate-300 leading-relaxed">
+          Launch a 4-player match right now. You pilot <strong class="text-red-400">Player 1 (Red)</strong> against 3 intelligent AI survivor bots (<span class="text-blue-400">Blue</span>, <span class="text-emerald-400">Green</span>, <span class="text-amber-400">Gold</span>).
+        </p>
+        <button id="btn-solo-start" class="w-full py-3.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 font-extrabold text-sm text-white shadow-lg shadow-emerald-500/25 transition">
+          ▶ Start Match Now
+        </button>
+      </div>
+
+      <!-- Tab Content 2: Create Room -->
+      <div id="view-create" class="space-y-4 hidden">
         <div>
           <label class="block text-xs font-semibold text-slate-300 mb-1">Your Survivor Name</label>
           <input id="create-name-input" type="text" placeholder="Captain Nemo" maxlength="16" value="Captain"
@@ -95,11 +107,11 @@
         </button>
       </div>
 
-      <!-- Tab Content 2: Join Room -->
+      <!-- Tab Content 3: Join Room -->
       <div id="view-join" class="space-y-4 hidden">
         <div>
           <label class="block text-xs font-semibold text-slate-300 mb-1">Room Code</label>
-          <input id="join-code-input" type="text" placeholder="e.g. SURVIV" maxlength="8"
+          <input id="join-code-input" type="text" placeholder="e.g. WDA7WZ" maxlength="8"
             class="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-sm text-white uppercase font-mono tracking-widest focus:outline-none focus:border-cyan-500 transition">
         </div>
         <div>
@@ -109,16 +121,6 @@
         </div>
         <button id="btn-join-room" class="w-full py-3 rounded-xl bg-cyan-600 hover:bg-cyan-500 font-bold text-sm text-white shadow-lg shadow-cyan-600/25 transition">
           Join Island Room
-        </button>
-      </div>
-
-      <!-- Tab Content 3: Solo Play -->
-      <div id="view-solo" class="space-y-4 hidden">
-        <p class="text-xs text-slate-300 leading-relaxed">
-          Launch an instant offline/local match with you (Red) versus 3 intelligent heuristic AI survivor bots (Blue, Green, Gold).
-        </p>
-        <button id="btn-solo-start" class="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 font-bold text-sm text-white shadow-lg shadow-emerald-600/25 transition">
-          Start Solo Match
         </button>
       </div>
 
@@ -165,7 +167,7 @@
             <h1 class="text-base font-extrabold tracking-tight text-white flex items-center gap-2">
               CASTAWAY CAPITAL
               <span id="online-room-badge" class="text-[11px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
-                Lobby
+                Solo vs Bots
               </span>
             </h1>
           </div>
@@ -292,16 +294,16 @@
         </div>
         <div>
           <div class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Dice Output</div>
-          <div id="dice-result-label" class="text-sm font-extrabold text-white font-mono">Roll: 8 (3 + 5)</div>
+          <div id="dice-result-label" class="text-sm font-extrabold text-white font-mono">Ready to roll!</div>
         </div>
-        <div id="turn-alert-msg" class="text-xs px-2.5 py-1 rounded-lg bg-orange-500/20 text-orange-300 border border-orange-500/40 font-bold hidden">
+        <div id="turn-alert-msg" class="text-xs px-2.5 py-1 rounded-lg bg-orange-500/20 text-orange-300 border border-orange-500/40 font-bold">
           YOUR TURN!
         </div>
       </div>
 
       <!-- Center: Action Buttons -->
       <div class="flex items-center space-x-2">
-        <button id="roll-btn" class="px-6 py-2.5 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 disabled:opacity-40 disabled:hover:from-orange-500 text-white font-bold text-sm shadow-lg shadow-orange-500/25 flex items-center gap-2 transition active:scale-95">
+        <button id="roll-btn" class="px-6 py-2.5 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 disabled:opacity-40 disabled:pointer-events-none text-white font-bold text-sm shadow-lg shadow-orange-500/25 flex items-center gap-2 transition active:scale-95">
           <i data-lucide="dices" class="w-4 h-4"></i>
           <span>ROLL DICE</span>
         </button>
@@ -316,7 +318,7 @@
           <span>Repair</span>
         </button>
 
-        <button id="end-turn-btn" class="px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-slate-200 text-xs font-bold flex items-center gap-1.5 transition">
+        <button id="end-turn-btn" class="px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:pointer-events-none text-slate-200 text-xs font-bold flex items-center gap-1.5 transition">
           <i data-lucide="arrow-right-circle" class="w-4 h-4"></i>
           <span>Pass Turn</span>
         </button>
@@ -337,19 +339,22 @@
 
   <!-- Audio Synthesizer (Web Audio API) -->
   <script>
-    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    let audioCtx = null;
     function playBeep(freq, type = 'sine', duration = 0.15) {
-      if (audioCtx.state === 'suspended') audioCtx.resume();
-      const osc = audioCtx.createOscillator();
-      const gain = audioCtx.createGain();
-      osc.type = type;
-      osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
-      gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
-      osc.connect(gain);
-      gain.connect(audioCtx.destination);
-      osc.start();
-      osc.stop(audioCtx.currentTime + duration);
+      try {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+        gain.gain.setValueAtTime(0.12, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + duration);
+      } catch (e) {}
     }
   </script>
 
@@ -393,6 +398,7 @@
       currentTurnIndex: 0,
       financeManagerId: -1,
       gameOver: false,
+      hasRolledThisTurn: false,
       players: [
         { id: 0, name: "Player 1", color: "Red", hex: "#EF4444", threeColor: 0xef4444, pos: 0, capital: 1500, isBot: false, isBankrupt: false, notes: {500:2, 100:2, 50:2, 20:6, 10:5, 5:5, 1:5}, properties: [] },
         { id: 1, name: "Navigator", color: "Blue", hex: "#3B82F6", threeColor: 0x3b82f6, pos: 0, capital: 1500, isBot: true, isBankrupt: false, notes: {500:2, 100:2, 50:2, 20:6, 10:5, 5:5, 1:5}, properties: [] },
@@ -400,7 +406,7 @@
         { id: 3, name: "Scavenger", color: "Gold", hex: "#F59E0B", threeColor: 0xf59e0b, pos: 0, capital: 1500, isBot: true, isBankrupt: false, notes: {500:2, 100:2, 50:2, 20:6, 10:5, 5:5, 1:5}, properties: [] }
       ],
       tiles: TILE_DATA.map(t => ({ ...t, ownerId: -1, state: "PRISTINE", isMortgaged: false })),
-      recentEvents: ["Welcome to Castaway Capital: Island of Ruin! Click Host, Join, or Solo to begin."],
+      recentEvents: ["Welcome to Castaway Capital: Island of Ruin!"],
       chatMessages: []
     };
 
@@ -436,8 +442,8 @@
 
     function init3D() {
       const container = document.getElementById('canvas-container');
-      const width = container.clientWidth;
-      const height = container.clientHeight;
+      const width = container.clientWidth || window.innerWidth;
+      const height = container.clientHeight || window.innerHeight;
 
       scene = new THREE.Scene();
       scene.background = new THREE.Color(0x060d17);
@@ -461,7 +467,6 @@
       controls.maxDistance = 85;
       controls.target.set(0, 0, 0);
 
-      // Ambient & Sun
       scene.add(new THREE.AmbientLight(0x38bdf8, 0.45));
       const sun = new THREE.DirectionalLight(0xffedd5, 1.3);
       sun.position.set(30, 50, 20);
@@ -470,12 +475,10 @@
       sun.shadow.mapSize.height = 2048;
       scene.add(sun);
 
-      // Volcano Caldera Light
       const calderaLight = new THREE.PointLight(0xff3b00, 2.5, 30);
       calderaLight.position.set(0, 6, 0);
       scene.add(calderaLight);
 
-      // Ocean Plane
       const oceanGeo = new THREE.PlaneGeometry(300, 300, 32, 32);
       const oceanMat = new THREE.MeshStandardMaterial({ color: 0x092635, roughness: 0.1, metalness: 0.8 });
       const ocean = new THREE.Mesh(oceanGeo, oceanMat);
@@ -495,31 +498,26 @@
 
     function buildCentralIsland() {
       const island = new THREE.Group();
-      // Sand base
       const beach = new THREE.Mesh(new THREE.CylinderGeometry(20, 23, 1.2, 32), new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.9 }));
       beach.position.y = 0.4;
       beach.receiveShadow = true;
       island.add(beach);
 
-      // Jungle terrace
       const jungle = new THREE.Mesh(new THREE.CylinderGeometry(15, 18, 2, 28), new THREE.MeshStandardMaterial({ color: 0x065f46, roughness: 0.85 }));
       jungle.position.y = 1.6;
       jungle.castShadow = true;
       island.add(jungle);
 
-      // Volcano
       const volcano = new THREE.Mesh(new THREE.ConeGeometry(9, 7.5, 24, 1, true), new THREE.MeshStandardMaterial({ color: 0x1f2937, roughness: 0.95, flatShading: true }));
       volcano.position.y = 5.2;
       volcano.castShadow = true;
       island.add(volcano);
 
-      // Lava Crater
       const caldera = new THREE.Mesh(new THREE.CircleGeometry(3, 16), new THREE.MeshBasicMaterial({ color: 0xff4500 }));
       caldera.rotation.x = -Math.PI / 2;
       caldera.position.y = 7.5;
       island.add(caldera);
 
-      // Palm trees
       for (let i = 0; i < 14; ++i) {
         const pAngle = (i / 14) * Math.PI * 2 + (Math.random() * 0.3);
         const pDist = 10 + Math.random() * 5;
@@ -527,7 +525,6 @@
         palm.position.set(Math.cos(pAngle) * pDist, 2.5, Math.sin(pAngle) * pDist);
         island.add(palm);
       }
-
       scene.add(island);
     }
 
@@ -552,19 +549,16 @@
         group.position.set(coords.x, coords.y, coords.z);
         group.rotation.y = -coords.angle;
 
-        // Base chassis slab
         const slab = new THREE.Mesh(new THREE.BoxGeometry(5.6, 0.9, 5.6), new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.4, metalness: 0.2 }));
         slab.receiveShadow = true;
         slab.castShadow = true;
         group.add(slab);
 
-        // Colored top face
         const topFace = new THREE.Mesh(new THREE.BoxGeometry(5.1, 0.1, 5.1), new THREE.MeshStandardMaterial({ color: tile.color, roughness: 0.3 }));
         topFace.position.y = 0.5;
         topFace.receiveShadow = true;
         group.add(topFace);
 
-        // Architecture markers
         if (tile.type === "BASE_CAMP") {
           const beacon = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.7, 2.2, 8), new THREE.MeshStandardMaterial({ color: 0x06b6d4, emissive: 0x06b6d4, emissiveIntensity: 0.6 }));
           beacon.position.y = 1.6;
@@ -732,9 +726,11 @@
 
     function onWindowResize() {
       const container = document.getElementById('canvas-container');
-      camera.aspect = container.clientWidth / container.clientHeight;
+      const width = container.clientWidth || window.innerWidth;
+      const height = container.clientHeight || window.innerHeight;
+      camera.aspect = width / height;
       camera.updateProjectionMatrix();
-      renderer.setSize(container.clientWidth, container.clientHeight);
+      renderer.setSize(width, height);
     }
 
     function animate() {
@@ -749,47 +745,52 @@
     let ws = null;
 
     function connectWebSocket() {
-      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const wsUrl = `${protocol}//${window.location.host}/ws`;
+      if (window.location.protocol === 'file:') {
+        document.getElementById('server-status-pill').textContent = "Local Mode";
+        return;
+      }
 
-      ws = new WebSocket(wsUrl);
+      try {
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsUrl = `${protocol}//${window.location.host}/ws`;
 
-      ws.onopen = () => {
-        console.log("WebSocket connected to live game server.");
-      };
+        ws = new WebSocket(wsUrl);
 
-      ws.onmessage = (event) => {
-        const data = jsonParseSafe(event.data);
-        if (!data) return;
+        ws.onopen = () => {
+          document.getElementById('server-status-pill').textContent = "Online Live";
+          document.getElementById('server-status-pill').className = "text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 uppercase tracking-widest";
+        };
 
-        if (data.type === "room_created") {
-          gameState.isOnline = true;
-          gameState.roomCode = data.room_code;
-          gameState.mySlot = data.slot;
-          showWaitingLobby(data.room_code, data.state);
-        } else if (data.type === "room_joined") {
-          gameState.isOnline = true;
-          gameState.roomCode = data.room_code;
-          gameState.mySlot = data.slot;
-          showWaitingLobby(data.room_code, data.state);
-        } else if (data.type === "state_update") {
-          applyServerState(data);
-        } else if (data.type === "dice_rolled") {
-          handleDiceRollEvent(data);
-        } else if (data.type === "chat_message") {
-          addChatMessage(data.chat);
-        } else if (data.type === "error") {
-          showLobbyError(data.message);
-        }
-      };
+        ws.onmessage = (event) => {
+          const data = jsonParseSafe(event.data);
+          if (!data) return;
 
-      ws.onerror = (err) => {
-        console.warn("WebSocket error, fallback to standalone simulation mode.", err);
-      };
+          if (data.type === "room_created" || data.type === "room_joined") {
+            gameState.isOnline = true;
+            gameState.roomCode = data.room_code;
+            gameState.mySlot = data.slot;
+            showWaitingLobby(data.room_code, data.state);
+          } else if (data.type === "state_update") {
+            applyServerState(data);
+          } else if (data.type === "dice_rolled") {
+            handleDiceRollEvent(data);
+          } else if (data.type === "chat_message") {
+            addChatMessage(data.chat);
+          } else if (data.type === "error") {
+            showLobbyError(data.message);
+          }
+        };
 
-      ws.onclose = () => {
-        console.log("WebSocket connection closed.");
-      };
+        ws.onerror = (err) => {
+          document.getElementById('server-status-pill').textContent = "Solo Ready";
+        };
+
+        ws.onclose = () => {
+          document.getElementById('server-status-pill').textContent = "Disconnected";
+        };
+      } catch (err) {
+        document.getElementById('server-status-pill').textContent = "Solo Ready";
+      }
     }
 
     function jsonParseSafe(str) {
@@ -811,7 +812,6 @@
           gameState.players[i].notes = p.notes;
           gameState.players[i].properties = p.properties || [];
 
-          // Move pawn
           const coords = getTileCoordinates(p.pos);
           const offset = getPawnOffset(i);
           playerPawnMeshes[i].position.set(coords.x + offset.x, coords.y + 0.5, coords.z + offset.z);
@@ -873,7 +873,6 @@
         listEl.appendChild(item);
       });
 
-      // Only slot 0 (host) sees start button
       const startBtn = document.getElementById('btn-start-match');
       if (gameState.mySlot === 0) {
         startBtn.classList.remove('hidden');
@@ -889,7 +888,7 @@
     }
 
     // =========================================================================
-    // 4. UI RENDERING & ACTION DISPATCH
+    // 4. UI RENDERING & ACTION DISPATCH (SOLO + ONLINE UNIFIED)
     // =========================================================================
     function renderUI() {
       const curPlayer = gameState.players[gameState.currentTurnIndex];
@@ -927,7 +926,7 @@
           <div class="flex items-center justify-between mb-1.5">
             <div class="flex items-center gap-2">
               <span class="w-3 h-3 rounded-full" style="background-color: ${p.hex}"></span>
-              <span class="text-xs font-bold text-white">${p.name} ${p.id === gameState.mySlot && gameState.isOnline ? '<span class="text-[9px] text-cyan-400 font-bold">[YOU]</span>' : ''}</span>
+              <span class="text-xs font-bold text-white">${p.name} ${(!gameState.isOnline && p.id === 0) || (gameState.isOnline && p.id === gameState.mySlot) ? '<span class="text-[9px] text-cyan-400 font-bold">[YOU]</span>' : (p.isBot ? '<span class="text-[9px] text-slate-500">[BOT]</span>' : '')}</span>
               ${isMinister ? '<span class="text-[9px] px-1 py-0.2 rounded bg-amber-500/20 text-amber-300 font-bold border border-amber-500/40">MINISTER</span>' : ''}
             </div>
             <div class="text-xs font-extrabold font-mono text-emerald-400">$${p.capital}</div>
@@ -953,17 +952,31 @@
         eventsContainer.appendChild(item);
       });
 
-      // Turn Control Permissions (Online mode disables buttons if not your turn)
-      const isMyTurn = !gameState.isOnline || (gameState.currentTurnIndex === gameState.mySlot);
-      document.getElementById('roll-btn').disabled = !isMyTurn;
-      document.getElementById('end-turn-btn').disabled = !isMyTurn;
-      document.getElementById('fortify-btn').disabled = !isMyTurn;
-      document.getElementById('repair-btn').disabled = !isMyTurn;
+      // Turn Permissions:
+      // If Solo: only enable when currentTurnIndex === 0 (Human)
+      // If Online: only enable when currentTurnIndex === mySlot
+      const isMyTurn = gameState.isOnline 
+        ? (gameState.currentTurnIndex === gameState.mySlot)
+        : (gameState.currentTurnIndex === 0 && !gameState.gameOver);
 
+      const rollBtn = document.getElementById('roll-btn');
+      const endBtn = document.getElementById('end-turn-btn');
+      const fortifyBtn = document.getElementById('fortify-btn');
+      const repairBtn = document.getElementById('repair-btn');
       const alertEl = document.getElementById('turn-alert-msg');
-      if (isMyTurn && !gameState.gameOver) {
+
+      if (isMyTurn) {
+        rollBtn.disabled = gameState.hasRolledThisTurn;
+        endBtn.disabled = !gameState.hasRolledThisTurn;
+        fortifyBtn.disabled = false;
+        repairBtn.disabled = false;
         alertEl.classList.remove('hidden');
+        alertEl.textContent = "YOUR TURN!";
       } else {
+        rollBtn.disabled = true;
+        endBtn.disabled = true;
+        fortifyBtn.disabled = true;
+        repairBtn.disabled = true;
         alertEl.classList.add('hidden');
       }
 
@@ -982,12 +995,239 @@
     }
 
     // =========================================================================
-    // 5. EVENT LISTENERS
+    // 5. CLIENT-SIDE SOLO SIMULATION ENGINE (FOR INSTANT LOCAL PLAY)
     // =========================================================================
+    function clientRollDice() {
+      if (gameState.gameOver || gameState.hasRolledThisTurn) return;
+
+      const curPlayer = gameState.players[gameState.currentTurnIndex];
+      const d1 = Math.floor(Math.random() * 6) + 1;
+      const d2 = Math.floor(Math.random() * 6) + 1;
+      const steps = d1 + d2;
+
+      const unicodeDice = ["", "⚀", "⚁", "⚂", "⚃", "⚄", "⚅"];
+      document.getElementById('die-1').textContent = unicodeDice[d1];
+      document.getElementById('die-2').textContent = unicodeDice[d2];
+      document.getElementById('dice-result-label').textContent = `Roll: ${steps} (${d1} + ${d2})`;
+
+      const oldPos = curPlayer.pos;
+      curPlayer.pos = (curPlayer.pos + steps) % 24;
+
+      animatePawnHop(curPlayer.id, curPlayer.pos);
+
+      // Base Camp Salary (+200 in structured notes)
+      if (curPlayer.pos < oldPos) {
+        curPlayer.capital += 200;
+        curPlayer.notes[100] = (curPlayer.notes[100] || 0) + 1;
+        curPlayer.notes[50]  = (curPlayer.notes[50]  || 0) + 1;
+        curPlayer.notes[20]  = (curPlayer.notes[20]  || 0) + 2;
+        curPlayer.notes[10]  = (curPlayer.notes[10]  || 0) + 1;
+        logClientEvent(`🏕️ ${curPlayer.name} completed a lap and collected $200 Salary notes (1x 100, 1x 50, 2x 20, 1x 10)!`);
+      }
+
+      const landed = gameState.tiles[curPlayer.pos];
+      inspectTile(curPlayer.pos);
+
+      if (landed.type === "PROPERTY") {
+        if (landed.ownerId === -1) {
+          if (curPlayer.capital >= landed.cost) {
+            curPlayer.capital -= landed.cost;
+            spendPlayerCash(curPlayer, landed.cost);
+            landed.ownerId = curPlayer.id;
+            curPlayer.properties.push(landed.id);
+            logClientEvent(`🏝️ ${curPlayer.name} acquired ${landed.name} for $${landed.cost}!`);
+          }
+        } else if (landed.ownerId !== curPlayer.id) {
+          const owner = gameState.players[landed.ownerId];
+          const rent = landed.state === "FORTIFIED" ? landed.fortifiedRent : landed.rent;
+          if (landed.state !== "RUINED" && !landed.isMortgaged) {
+            let fee = 0;
+            if (gameState.financeManagerId !== -1 && gameState.financeManagerId !== curPlayer.id) {
+              fee = Math.max(1, Math.floor(rent * 0.05));
+              const minister = gameState.players[gameState.financeManagerId];
+              minister.capital += fee;
+              addPlayerCash(minister, fee);
+            }
+            const netRent = rent - fee;
+            curPlayer.capital -= rent;
+            spendPlayerCash(curPlayer, rent);
+            owner.capital += netRent;
+            addPlayerCash(owner, netRent);
+
+            let msg = `💰 ${curPlayer.name} paid $${netRent} rent to ${owner.name}`;
+            if (fee > 0) msg += ` [🏛️ $${fee} cut to Minister]`;
+            logClientEvent(msg);
+
+            if (curPlayer.capital < 0) {
+              curPlayer.isBankrupt = true;
+              logClientEvent(`💀 ${curPlayer.name} went BANKRUPT and was eliminated!`);
+            }
+          }
+        }
+      } else if (landed.type === "LICENSE") {
+        if (curPlayer.capital >= landed.cost && gameState.financeManagerId !== curPlayer.id) {
+          curPlayer.capital -= landed.cost;
+          spendPlayerCash(curPlayer, landed.cost);
+          gameState.financeManagerId = curPlayer.id;
+          logClientEvent(`🏛️ ${curPlayer.name} acquired the FINANCE MANAGER LICENSE (5% royalties on all rents & loans)!`);
+        }
+      } else if (landed.type === "EVENT") {
+        triggerClientEvent(curPlayer);
+      }
+
+      gameState.hasRolledThisTurn = true;
+      renderUI();
+    }
+
+    function spendPlayerCash(player, amount) {
+      let rem = amount;
+      [500, 100, 50, 20, 10, 5, 1].forEach(d => {
+        const take = Math.min(player.notes[d] || 0, Math.floor(rem / d));
+        player.notes[d] -= take;
+        rem -= take * d;
+      });
+      if (rem > 0) {
+        for (let d of [5, 10, 20, 50, 100, 500]) {
+          if (player.notes[d] > 0) {
+            player.notes[d]--;
+            addPlayerCash(player, d - rem);
+            break;
+          }
+        }
+      }
+    }
+
+    function addPlayerCash(player, amount) {
+      let rem = amount;
+      [500, 100, 50, 20, 10, 5, 1].forEach(d => {
+        const add = Math.floor(rem / d);
+        player.notes[d] = (player.notes[d] || 0) + add;
+        rem %= d;
+      });
+    }
+
+    function triggerClientEvent(player) {
+      const cards = [
+        () => {
+          const owned = gameState.tiles.filter(t => t.type === "PROPERTY" && t.ownerId !== -1 && t.state !== "RUINED");
+          if (owned.length > 0) {
+            owned[0].state = "RUINED";
+            logClientEvent(`⚡ Cyclone devastated ${owned[0].name} into [RUINED]!`);
+          }
+        },
+        () => {
+          player.capital += 150;
+          addPlayerCash(player, 150);
+          logClientEvent(`📦 ${player.name} salvaged a floating cargo crate with +$150 Capital!`);
+        },
+        () => {
+          gameState.players.forEach(p => { p.capital = Math.max(0, p.capital - 40); spendPlayerCash(p, 40); });
+          logClientEvent(`🦟 Ration Spoilage: All survivors paid $40 in emergency supplies.`);
+        }
+      ];
+      cards[Math.floor(Math.random() * cards.length)]();
+    }
+
+    function clientPassTurn() {
+      gameState.hasRolledThisTurn = false;
+      gameState.currentTurnIndex = (gameState.currentTurnIndex + 1) % 4;
+      if (gameState.currentTurnIndex === 0) {
+        gameState.round++;
+        logClientEvent(`>>> === LAP #${gameState.round} COMMENCED === <<<`);
+      }
+      renderUI();
+
+      // If next is Bot, trigger automated bot turn
+      const cur = gameState.players[gameState.currentTurnIndex];
+      if (cur.isBot && !cur.isBankrupt && !gameState.gameOver) {
+        setTimeout(runBotTurn, 900);
+      }
+    }
+
+    function runBotTurn() {
+      if (gameState.gameOver) return;
+      clientRollDice();
+      setTimeout(clientPassTurn, 1000);
+    }
+
+    function logClientEvent(msg) {
+      gameState.recentEvents.push(msg);
+      if (gameState.recentEvents.length > 20) gameState.recentEvents.shift();
+      renderUI();
+    }
+
+    // =========================================================================
+    // 6. EVENT LISTENERS
+    // =========================================================================
+    // Action Buttons
+    document.getElementById('roll-btn').addEventListener('click', () => {
+      if (gameState.isOnline && ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: "roll_dice" }));
+      } else {
+        clientRollDice();
+      }
+    });
+
+    document.getElementById('end-turn-btn').addEventListener('click', () => {
+      if (gameState.isOnline && ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: "end_turn" }));
+      } else {
+        clientPassTurn();
+      }
+    });
+
+    document.getElementById('fortify-btn').addEventListener('click', () => {
+      const cur = gameState.players[gameState.currentTurnIndex];
+      const eligible = cur.properties.map(id => gameState.tiles[id]).filter(t => t.state === "PRISTINE");
+      if (eligible.length > 0) {
+        const target = eligible[0];
+        if (gameState.isOnline && ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: "fortify", tile_id: target.id }));
+        } else {
+          target.state = "FORTIFIED";
+          cur.capital -= 50;
+          spendPlayerCash(cur, 50);
+          logClientEvent(`🏰 ${cur.name} FORTIFIED ${target.name}! Rent escalated to $${target.fortifiedRent}.`);
+          renderUI();
+        }
+      } else {
+        logClientEvent("No eligible PRISTINE sectors available to fortify.");
+      }
+    });
+
+    document.getElementById('repair-btn').addEventListener('click', () => {
+      const cur = gameState.players[gameState.currentTurnIndex];
+      const ruined = cur.properties.map(id => gameState.tiles[id]).filter(t => t.state === "RUINED");
+      if (ruined.length > 0) {
+        const target = ruined[0];
+        if (gameState.isOnline && ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: "repair", tile_id: target.id }));
+        } else {
+          target.state = "PRISTINE";
+          cur.capital -= 35;
+          spendPlayerCash(cur, 35);
+          logClientEvent(`🔧 ${cur.name} repaired ${target.name} to [PRISTINE] for $35!`);
+          renderUI();
+        }
+      } else {
+        logClientEvent("You have no ruined sectors to repair.");
+      }
+    });
+
+    // Lobby Buttons
+    document.getElementById('btn-solo-start').addEventListener('click', () => {
+      document.getElementById('lobby-modal').classList.add('hidden');
+      document.getElementById('online-room-badge').textContent = "Solo vs Bots";
+      gameState.isOnline = false;
+      renderUI();
+    });
+
     document.getElementById('btn-create-room').addEventListener('click', () => {
       const name = document.getElementById('create-name-input').value.trim() || "Host";
       if (ws && ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({ type: "create_room", name }));
+      } else {
+        showLobbyError("WebSocket server is connecting or offline. Run 'python server.py' to host rooms.");
       }
     });
 
@@ -1000,6 +1240,8 @@
       }
       if (ws && ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({ type: "join_room", room_code: code, name }));
+      } else {
+        showLobbyError("WebSocket server is connecting or offline. Run 'python server.py' to host rooms.");
       }
     });
 
@@ -1009,17 +1251,11 @@
       }
     });
 
-    document.getElementById('btn-solo-start').addEventListener('click', () => {
-      document.getElementById('lobby-modal').classList.add('hidden');
-      document.getElementById('online-room-badge').textContent = "Solo vs Bots";
-      renderUI();
-    });
-
     document.getElementById('btn-copy-link').addEventListener('click', copyInviteLink);
     document.getElementById('btn-share-room').addEventListener('click', copyInviteLink);
 
     function copyInviteLink() {
-      const url = window.location.origin + window.location.pathname + '?room=' + gameState.roomCode;
+      const url = window.location.origin + window.location.pathname + '?room=' + (gameState.roomCode || "SOLO");
       navigator.clipboard.writeText(url).then(() => {
         const copyText = document.getElementById('copy-btn-text');
         copyText.textContent = "Copied!";
@@ -1028,6 +1264,15 @@
     }
 
     // Tabs
+    document.getElementById('tab-solo').addEventListener('click', () => {
+      document.getElementById('view-solo').classList.remove('hidden');
+      document.getElementById('view-create').classList.add('hidden');
+      document.getElementById('view-join').classList.add('hidden');
+      document.getElementById('tab-solo').className = "flex-1 py-2 font-bold text-emerald-400 border-b-2 border-emerald-500 transition";
+      document.getElementById('tab-create').className = "flex-1 py-2 font-medium text-slate-400 hover:text-slate-200 transition";
+      document.getElementById('tab-join').className = "flex-1 py-2 font-medium text-slate-400 hover:text-slate-200 transition";
+    });
+
     document.getElementById('tab-create').addEventListener('click', () => {
       document.getElementById('view-create').classList.remove('hidden');
       document.getElementById('view-join').classList.add('hidden');
@@ -1046,28 +1291,7 @@
       document.getElementById('tab-solo').className = "flex-1 py-2 font-medium text-slate-400 hover:text-slate-200 transition";
     });
 
-    document.getElementById('tab-solo').addEventListener('click', () => {
-      document.getElementById('view-create').classList.add('hidden');
-      document.getElementById('view-join').classList.add('hidden');
-      document.getElementById('view-solo').classList.remove('hidden');
-      document.getElementById('tab-create').className = "flex-1 py-2 font-medium text-slate-400 hover:text-slate-200 transition";
-      document.getElementById('tab-join').className = "flex-1 py-2 font-medium text-slate-400 hover:text-slate-200 transition";
-      document.getElementById('tab-solo').className = "flex-1 py-2 font-bold text-emerald-400 border-b-2 border-emerald-500 transition";
-    });
-
-    // In-game actions
-    document.getElementById('roll-btn').addEventListener('click', () => {
-      if (gameState.isOnline && ws) {
-        ws.send(JSON.stringify({ type: "roll_dice" }));
-      }
-    });
-
-    document.getElementById('end-turn-btn').addEventListener('click', () => {
-      if (gameState.isOnline && ws) {
-        ws.send(JSON.stringify({ type: "end_turn" }));
-      }
-    });
-
+    // Chat
     document.getElementById('chat-send-btn').addEventListener('click', sendChat);
     document.getElementById('chat-input').addEventListener('keydown', (e) => {
       if (e.key === 'Enter') sendChat();
@@ -1077,13 +1301,15 @@
       const input = document.getElementById('chat-input');
       const text = input.value.trim();
       if (!text) return;
-      if (gameState.isOnline && ws) {
+      if (gameState.isOnline && ws && ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({ type: "send_chat", text }));
+      } else {
+        addChatMessage({ sender: "You", color: "#EF4444", text });
       }
       input.value = '';
     }
 
-    // Camera Presets
+    // Camera presets
     document.getElementById('camera-select').addEventListener('change', (e) => {
       if (e.target.value === "topdown") camera.position.set(0, 68, 0.1);
       else if (e.target.value === "isometric") camera.position.set(0, 38, 46);
@@ -1095,7 +1321,7 @@
       controls.target.set(0, 0, 0);
     });
 
-    // Auto-fill room code from URL query parameter (?room=XYZ)
+    // Auto-detect room parameter from URL query (?room=XYZ)
     window.addEventListener('DOMContentLoaded', () => {
       init3D();
       renderUI();

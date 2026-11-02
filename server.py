@@ -1,15 +1,37 @@
 import os
+import sys
 import json
 import random
 import string
-import asyncio
+import socket
+import webbrowser
 from pathlib import Path
+
+# Force UTF-8 stdout on Windows
+if sys.platform == "win32":
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+
 import tornado.ioloop
 import tornado.web
 import tornado.websocket
 
-PORT = int(os.environ.get("PORT", 8080))
 PROJECT_DIR = Path(__file__).parent.resolve()
+
+def find_available_port(start_port=8080, max_attempts=10):
+    for port in range(start_port, start_port + max_attempts):
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            if s.connect_ex(('127.0.0.1', port)) != 0:
+                return port
+    return start_port
+
+DEFAULT_PORT = int(os.environ.get("PORT", 0))
+if DEFAULT_PORT == 0:
+    PORT = find_available_port(8080)
+else:
+    PORT = DEFAULT_PORT
 
 TILE_DATA = [
     {"id": 0, "name": "Base Camp Alpha", "sector": "Special", "type": "BASE_CAMP", "cost": 0, "rent": 200, "color": 0x06b6d4},
@@ -38,7 +60,6 @@ TILE_DATA = [
     {"id": 23, "name": "Smuggler's Rift", "sector": "Wilderness", "type": "EVENT", "cost": 0, "rent": 0, "color": 0xef4444}
 ]
 
-# Active Game Rooms: room_code -> GameRoom
 ROOMS = {}
 
 class GameRoom:
@@ -74,7 +95,7 @@ class GameRoom:
             "isMortgaged": False
         } for t in TILE_DATA]
 
-        self.recent_events = [f"Room {code} created by {host_name}."]
+        self.recent_events = [f"Room {code} initialized by {host_name}."]
         self.chat_history = []
         self.calamity_deck = [
             {"title": "Tsunami Surge", "desc": "Tidal wave sweeps Coastal sectors into RUINS!", "type": "RUIN_COASTAL"},
@@ -82,7 +103,7 @@ class GameRoom:
             {"title": "Jungle Rot Swarm", "desc": "Termite swarm devours Jungle sectors into RUINS!", "type": "RUIN_JUNGLE"},
             {"title": "Island Super-Cyclone", "desc": "Devastates highest-rent sector into RUINS!", "type": "RUIN_HIGHEST"},
             {"title": "Cargo Crate Salvage", "desc": "Floating shipping crate salvaged (+150 Credits)!", "type": "SALVAGE_150"},
-            {"title": "Ration Spoilage Tax", "desc": "Medical & food emergency! Each survivor pays $50.", "type": "TAX_50"}
+            {"title": "Ration Spoilage Tax", "desc": "Medical emergency! Each survivor pays $50.", "type": "TAX_50"}
         ]
         random.shuffle(self.calamity_deck)
 
@@ -137,10 +158,9 @@ class GameRoom:
             if p["ws"] is None:
                 p["is_bot"] = True
                 p["name"] = f"Bot_{bot_names[p['id']]}"
-        self.log_event("The match has officially begun! 4 survivors deployed to Base Camp.")
+        self.log_event("The match has begun! 4 survivors deployed to Base Camp Alpha.")
         self.broadcast(self.get_public_state())
 
-        # If slot 0 is a bot, kick off bot move
         if self.slots[0]["is_bot"]:
             tornado.ioloop.IOLoop.current().call_later(1.2, self.step_bot_turn)
 
@@ -168,14 +188,13 @@ class GameRoom:
         old_pos = player["pos"]
         player["pos"] = (player["pos"] + steps) % 24
 
-        # Lap completion Base Camp Salary (200 notes: 1x100, 1x50, 2x20, 1x10)
         if player["pos"] < old_pos:
             player["capital"] += 200
             player["notes"][100] = player["notes"].get(100, 0) + 1
             player["notes"][50]  = player["notes"].get(50, 0) + 1
             player["notes"][20]  = player["notes"].get(20, 0) + 2
             player["notes"][10]  = player["notes"].get(10, 0) + 1
-            self.log_event(f"🏕️ {player['name']} completed a lap and collected $200 Salary notes (1x 100, 1x 50, 2x 20, 1x 10)!")
+            self.log_event(f"🏕️ {player['name']} completed a lap and collected $200 Base Camp Salary (1x 100, 1x 50, 2x 20, 1x 10)!")
 
         landed_tile = self.tiles[player["pos"]]
         self.broadcast({
@@ -186,10 +205,8 @@ class GameRoom:
             "tile_name": landed_tile["name"]
         })
 
-        # Tile interactions
         if landed_tile["type"] == "PROPERTY":
             if landed_tile["ownerId"] == -1:
-                # Unowned: buy if affordable
                 if player["capital"] >= landed_tile["cost"]:
                     player["capital"] -= landed_tile["cost"]
                     self.spend_notes(player, landed_tile["cost"])
@@ -197,7 +214,6 @@ class GameRoom:
                     player["properties"].append(landed_tile["id"])
                     self.log_event(f"🏝️ {player['name']} acquired {landed_tile['name']} for ${landed_tile['cost']}!")
             elif landed_tile["ownerId"] != player["id"]:
-                # Pay rent
                 owner = self.slots[landed_tile["ownerId"]]
                 rent = landed_tile["fortifiedRent"] if landed_tile["state"] == "FORTIFIED" else landed_tile["rent"]
                 if landed_tile["state"] != "RUINED" and not landed_tile["isMortgaged"]:
@@ -297,7 +313,6 @@ class GameRoom:
         if not cur["is_bot"] or cur["is_bankrupt"]:
             return
 
-        # Auto repair if safe
         for p_id in cur["properties"]:
             tile = self.tiles[p_id]
             if tile["state"] == "RUINED" and cur["capital"] >= tile["repairCost"] + 100:
@@ -307,21 +322,19 @@ class GameRoom:
                 self.log_event(f"🔧 {cur['name']} repaired {tile['name']} to [PRISTINE] for ${tile['repairCost']}!")
                 break
 
-        # Auto upgrade if safe
         for p_id in cur["properties"]:
             tile = self.tiles[p_id]
             if tile["state"] == "PRISTINE" and cur["capital"] >= tile["upgradeCost"] + 200:
                 cur["capital"] -= tile["upgradeCost"]
                 self.spend_notes(cur, tile["upgradeCost"])
                 tile["state"] = "FORTIFIED"
-                self.log_event(f"🏰 {cur['name']} FORTIFIED {tile['name']}! Rent escalated to ${tile['fortifiedRent']}.")
+                self.log_event(f"🏰 {cur['name']} FORTIFIED {tile['name']}! Rent is now ${tile['fortifiedRent']}.")
                 break
 
         self.execute_roll(self.current_turn_index)
         tornado.ioloop.IOLoop.current().call_later(1.5, self.advance_turn)
 
 
-# HTTP Handlers
 class MainHandler(tornado.web.RequestHandler):
     def get(self):
         self.set_header("Cache-Control", "no-cache, no-store, must-revalidate")
@@ -341,10 +354,9 @@ class StateExportHandler(tornado.web.RequestHandler):
             self.write({"error": "No export state yet."})
 
 
-# WebSocket Handler for Online Multiplayer
 class GameWebSocketHandler(tornado.websocket.WebSocketHandler):
     def check_origin(self, origin):
-        return True # Allow cross-origin connection for public cloud deployment
+        return True
 
     def open(self):
         self.room_code = None
@@ -388,7 +400,6 @@ class GameWebSocketHandler(tornado.websocket.WebSocketHandler):
                     self.write_message(json.dumps({"type": "error", "message": "Game already in progress in this room."}))
                     return
 
-                # Find available slot
                 chosen_slot = None
                 if target_slot is not None and 0 <= target_slot < 4 and room.slots[target_slot]["ws"] is None:
                     chosen_slot = target_slot
@@ -420,7 +431,7 @@ class GameWebSocketHandler(tornado.websocket.WebSocketHandler):
             elif msg_type == "start_game":
                 if self.room_code in ROOMS:
                     room = ROOMS[self.room_code]
-                    if self.player_id == 0: # Only host can start
+                    if self.player_id == 0:
                         room.start_game()
 
             elif msg_type == "roll_dice":
@@ -499,11 +510,23 @@ def make_app():
     ], template_path=str(PROJECT_DIR), static_path=str(PROJECT_DIR), debug=False)
 
 if __name__ == "__main__":
-    print(f"============================================================")
-    print(f"  CASTAWAY CAPITAL: MULTIPLAYER WEBSOCKET GAME SERVER")
-    print(f"  Port: {PORT}")
-    print(f"  Listening on: http://0.0.0.0:{PORT}")
-    print(f"============================================================")
+    local_url = f"http://localhost:{PORT}"
+    print("=" * 60)
+    print("  CASTAWAY CAPITAL: MULTIPLAYER WEBSOCKET GAME SERVER")
+    print(f"  Live Server URL: {local_url}")
+    print("=" * 60)
+
     app = make_app()
     app.listen(PORT, address="0.0.0.0")
-    tornado.ioloop.IOLoop.current().start()
+
+    # In local mode, automatically open the default web browser!
+    if "PORT" not in os.environ:
+        try:
+            webbrowser.open(local_url)
+        except Exception:
+            pass
+
+    try:
+        tornado.ioloop.IOLoop.current().start()
+    except KeyboardInterrupt:
+        print("\nServer terminated.")

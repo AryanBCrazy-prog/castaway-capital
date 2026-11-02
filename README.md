@@ -22,31 +22,25 @@ An interactive, turn-based survival-monopoly simulation engine and online multip
 
 ---
 
-## 🚆 Deploying to Railway (Public Online Server)
+## 🚀 Deploying Online (Free Public Server)
 
-Deploy this project on [Railway](https://railway.app) for free to get a public `https://...up.railway.app` URL with live WebSocket support.
+If Railway is down or requiring credit card verification, **Render.com** provides a 100% free cloud host that supports live WebSockets out of the box.
 
-### Step-by-Step Deployment:
+### Option A: Render.com (100% Free, No Credit Card Required)
+1. Go to [dashboard.render.com](https://dashboard.render.com) and sign in with your GitHub account.
+2. Click **New +** ➡️ **Web Service**.
+3. Select your repository: **`AryanBCrazy-prog/castaway-capital`**.
+4. Render automatically reads [`render.yaml`](render.yaml):
+   - **Environment:** `Python`
+   - **Build Command:** `pip install -r requirements.txt`
+   - **Start Command:** `python server.py`
+5. Select the **Free** tier and click **Create Web Service**.
+6. Render will assign you a live HTTPS domain (e.g., `https://castaway-capital.onrender.com`).
 
-1. **Sign in to Railway:**
-   - Go to [railway.app](https://railway.app) and sign in using your GitHub account.
-
-2. **Create New Project from GitHub:**
-   - Click **New Project** ➡️ **Deploy from GitHub repo**.
-   - Select your repository: **`AryanBCrazy-prog/castaway-capital`**.
-
-3. **Automatic Configuration:**
-   - Railway will automatically detect [`railway.json`](railway.json) and [`Procfile`](Procfile).
-   - It will install dependencies from [`requirements.txt`](requirements.txt) (`tornado>=6.2`) and launch `python server.py`.
-
-4. **Generate Public Domain:**
-   - Once the service deploys, click on the **Service box** in your Railway canvas.
-   - Go to **Settings** ➡️ **Networking** ➡️ Click **Generate Domain**.
-   - Railway will issue your public live HTTPS URL (e.g., `https://castaway-capital-production.up.railway.app`).
-
-5. **Play Online with Friends:**
-   - Open your Railway domain in any browser.
-   - Click **Create Room**, copy the shareable room link, and send it to your friends to play!
+### Option B: Railway (When Active)
+1. Go to [railway.app](https://railway.app) and sign in with GitHub.
+2. Click **New Project** ➡️ **Deploy from GitHub repo** ➡️ Choose `AryanBCrazy-prog/castaway-capital`.
+3. In **Settings** ➡️ **Networking** ➡️ Click **Generate Domain** to get your public `https://...up.railway.app` URL.
 
 ---
 
