@@ -132,10 +132,10 @@ class GameRoom:
         self.winner_id = -1
 
         self.slots = [
-            {"id": 0, "name": host_name, "color": "Red",   "hex": "#EF4444", "is_bot": False, "ws": None, "pos": 0, "capital": 1500, "is_bankrupt": False, "tamper": 0, "notes": {500:2, 100:2, 50:2, 20:6, 10:5, 5:5, 1:5}, "properties": []},
-            {"id": 1, "name": "Waiting...", "color": "Blue",  "hex": "#3B82F6", "is_bot": True,  "ws": None, "pos": 0, "capital": 1500, "is_bankrupt": False, "tamper": 0, "notes": {500:2, 100:2, 50:2, 20:6, 10:5, 5:5, 1:5}, "properties": []},
-            {"id": 2, "name": "Waiting...", "color": "Green", "hex": "#10B981", "is_bot": True,  "ws": None, "pos": 0, "capital": 1500, "is_bankrupt": False, "tamper": 0, "notes": {500:2, 100:2, 50:2, 20:6, 10:5, 5:5, 1:5}, "properties": []},
-            {"id": 3, "name": "Waiting...", "color": "Gold",  "hex": "#F59E0B", "is_bot": True,  "ws": None, "pos": 0, "capital": 1500, "is_bankrupt": False, "tamper": 0, "notes": {500:2, 100:2, 50:2, 20:6, 10:5, 5:5, 1:5}, "properties": []}
+            {"id": 0, "name": host_name, "color": "Red",   "hex": "#EF4444", "is_bot": False, "ws": None, "pos": 0, "capital": 1500, "peak_capital": 1500, "lowest_capital": 1500, "total_rent_paid": 0, "total_rent_earned": 0, "is_bankrupt": False, "tamper": 0, "notes": {500:2, 100:2, 50:2, 20:6, 10:5, 5:5, 1:5}, "properties": []},
+            {"id": 1, "name": "Waiting...", "color": "Blue",  "hex": "#3B82F6", "is_bot": True,  "ws": None, "pos": 0, "capital": 1500, "peak_capital": 1500, "lowest_capital": 1500, "total_rent_paid": 0, "total_rent_earned": 0, "is_bankrupt": False, "tamper": 0, "notes": {500:2, 100:2, 50:2, 20:6, 10:5, 5:5, 1:5}, "properties": []},
+            {"id": 2, "name": "Waiting...", "color": "Green", "hex": "#10B981", "is_bot": True,  "ws": None, "pos": 0, "capital": 1500, "peak_capital": 1500, "lowest_capital": 1500, "total_rent_paid": 0, "total_rent_earned": 0, "is_bankrupt": False, "tamper": 0, "notes": {500:2, 100:2, 50:2, 20:6, 10:5, 5:5, 1:5}, "properties": []},
+            {"id": 3, "name": "Waiting...", "color": "Gold",  "hex": "#F59E0B", "is_bot": True,  "ws": None, "pos": 0, "capital": 1500, "peak_capital": 1500, "lowest_capital": 1500, "total_rent_paid": 0, "total_rent_earned": 0, "is_bankrupt": False, "tamper": 0, "notes": {500:2, 100:2, 50:2, 20:6, 10:5, 5:5, 1:5}, "properties": []}
         ]
 
         self.tiles = [{
@@ -154,6 +154,7 @@ class GameRoom:
         } for t in TILE_DATA]
 
         self.recent_events = [f"Room {code} initialized by {host_name}."]
+        self.action_history = []
         self.chat_history = []
         self.calamity_deck = [
             {"title": "Tsunami Surge", "desc": "Tidal wave sweeps Coastal sectors into RUINS!", "type": "RUIN_COASTAL"},
@@ -169,6 +170,36 @@ class GameRoom:
         self.recent_events.append(text)
         if len(self.recent_events) > 15:
             self.recent_events.pop(0)
+
+    def change_capital(self, player, delta):
+        player["capital"] += delta
+        if player["capital"] > player.get("peak_capital", player["capital"]):
+            player["peak_capital"] = player["capital"]
+        if player["capital"] < player.get("lowest_capital", player["capital"]):
+            player["lowest_capital"] = player["capital"]
+        if delta < 0:
+            player["total_rent_paid"] = player.get("total_rent_paid", 0) + abs(delta)
+        elif delta > 0:
+            player["total_rent_earned"] = player.get("total_rent_earned", 0) + delta
+
+    def record_action(self, player, action_title, movement, cause, effect, financial="", category="INFO"):
+        entry = {
+            "id": len(self.action_history) + 1,
+            "round": self.round,
+            "player_id": player["id"],
+            "player_name": player["name"],
+            "player_hex": player["hex"],
+            "action": action_title,
+            "movement": movement,
+            "cause": cause,
+            "effect": effect,
+            "financial": financial,
+            "category": category
+        }
+        self.action_history.append(entry)
+        if len(self.action_history) > 30:
+            self.action_history.pop(0)
+        self.broadcast({"type": "action_recorded", "entry": entry})
 
     def broadcast(self, message_dict):
         msg_str = json.dumps(message_dict)
@@ -199,6 +230,10 @@ class GameRoom:
                 "connected": p["ws"] is not None,
                 "pos": p["pos"],
                 "capital": p["capital"],
+                "peak_capital": p.get("peak_capital", p["capital"]),
+                "lowest_capital": p.get("lowest_capital", p["capital"]),
+                "total_rent_paid": p.get("total_rent_paid", 0),
+                "total_rent_earned": p.get("total_rent_earned", 0),
                 "is_bankrupt": p["is_bankrupt"],
                 "tamper": p["tamper"],
                 "notes": p["notes"],
@@ -206,6 +241,7 @@ class GameRoom:
             } for p in self.slots],
             "tiles": self.tiles,
             "recent_events": self.recent_events,
+            "action_history": self.action_history[-20:],
             "chat_history": self.chat_history[-10:]
         }
 
@@ -247,12 +283,21 @@ class GameRoom:
         player["pos"] = (player["pos"] + steps) % 24
 
         if player["pos"] < old_pos:
-            player["capital"] += 200
+            self.change_capital(player, 200)
             player["notes"][100] = player["notes"].get(100, 0) + 1
             player["notes"][50]  = player["notes"].get(50, 0) + 1
             player["notes"][20]  = player["notes"].get(20, 0) + 2
             player["notes"][10]  = player["notes"].get(10, 0) + 1
             self.log_event(f"🏕️ {player['name']} completed a lap and collected $200 Base Camp Salary (1x 100, 1x 50, 2x 20, 1x 10)!")
+            self.record_action(
+                player=player,
+                action_title=f"Rolled {steps} ({d1} + {d2})",
+                movement=f"Completed lap circuit ➔ Tile #{player['pos']}",
+                cause="Completed a full lap across the island circuit",
+                effect="Collected $200 Base Camp Salary in structured notes",
+                financial="+$200",
+                category="SALARY"
+            )
 
         landed_tile = self.tiles[player["pos"]]
         self.broadcast({
@@ -266,26 +311,48 @@ class GameRoom:
         if landed_tile["type"] == "PROPERTY":
             if landed_tile["ownerId"] == -1:
                 if player["capital"] >= landed_tile["cost"]:
-                    player["capital"] -= landed_tile["cost"]
+                    self.change_capital(player, -landed_tile["cost"])
                     self.spend_notes(player, landed_tile["cost"])
                     landed_tile["ownerId"] = player["id"]
                     player["properties"].append(landed_tile["id"])
                     self.log_event(f"🏝️ {player['name']} acquired {landed_tile['name']} for ${landed_tile['cost']}!")
+                    self.record_action(
+                        player=player,
+                        action_title=f"Acquired {landed_tile['name']}",
+                        movement=f"Landed on #{landed_tile['id']} ({landed_tile['name']})",
+                        cause=f"Sector was unowned. Player had sufficient funds (${landed_tile['cost']})",
+                        effect=f"Purchased ownership. Future visitors must pay ${landed_tile['rent']} rent.",
+                        financial=f"-${landed_tile['cost']}",
+                        category="BUY"
+                    )
+                    self.broadcast({
+                        "type": "transaction_alert",
+                        "category": "BUY",
+                        "title": "SECTOR PURCHASED",
+                        "buyer_id": player["id"],
+                        "buyer_name": player["name"],
+                        "buyer_hex": player["hex"],
+                        "tile_name": landed_tile["name"],
+                        "cost": landed_tile["cost"],
+                        "rent": landed_tile["rent"]
+                    })
             elif landed_tile["ownerId"] != player["id"]:
                 owner = self.slots[landed_tile["ownerId"]]
                 rent = landed_tile["fortifiedRent"] if landed_tile["state"] == "FORTIFIED" else landed_tile["rent"]
                 if landed_tile["state"] != "RUINED" and not landed_tile["isMortgaged"]:
                     fee = 0
+                    minister_name = ""
                     if self.finance_manager_id != -1 and self.finance_manager_id != player["id"]:
                         fee = max(1, int(rent * 0.05))
                         minister = self.slots[self.finance_manager_id]
-                        minister["capital"] += fee
+                        minister_name = minister["name"]
+                        self.change_capital(minister, fee)
                         self.add_notes(minister, fee)
 
                     net_rent = rent - fee
-                    player["capital"] -= rent
+                    self.change_capital(player, -rent)
                     self.spend_notes(player, rent)
-                    owner["capital"] += net_rent
+                    self.change_capital(owner, net_rent)
                     self.add_notes(owner, net_rent)
 
                     msg = f"💰 {player['name']} paid ${net_rent} rent to {owner['name']}"
@@ -293,9 +360,47 @@ class GameRoom:
                         msg += f" [🏛️ ${fee} cut to Minister]"
                     self.log_event(msg)
 
+                    self.record_action(
+                        player=player,
+                        action_title="House Call: Paid Rent",
+                        movement=f"Entered {owner['name']}'s #{landed_tile['id']} ({landed_tile['name']})",
+                        cause=f"Trespassed onto rival {landed_tile['state']} sector",
+                        effect=f"Paid ${net_rent} to {owner['name']}" + (f" and ${fee} royalty to Minister {minister_name}" if fee > 0 else ""),
+                        financial=f"-${rent}",
+                        category="RENT"
+                    )
+
+                    # Active Transaction Alert Broadcast
+                    self.broadcast({
+                        "type": "transaction_alert",
+                        "category": "RENT",
+                        "title": "HOUSE CALL: RENT SURRENDERED",
+                        "tenant_id": player["id"],
+                        "tenant_name": player["name"],
+                        "tenant_hex": player["hex"],
+                        "landlord_id": owner["id"],
+                        "landlord_name": owner["name"],
+                        "landlord_hex": owner["hex"],
+                        "tile_name": landed_tile["name"],
+                        "tile_state": landed_tile["state"],
+                        "base_rent": rent,
+                        "minister_fee": fee,
+                        "minister_name": minister_name,
+                        "net_rent": net_rent
+                    })
+
                     if player["capital"] < 0:
                         player["is_bankrupt"] = True
                         self.log_event(f"💀 {player['name']} went BANKRUPT and was eliminated!")
+                        self.record_action(
+                            player=player,
+                            action_title="Survivor Bankrupt",
+                            movement=f"Eliminated at #{landed_tile['id']} ({landed_tile['name']})",
+                            cause=f"Unable to afford ${rent} rent payment to {owner['name']}",
+                            effect="All assets surrendered to the bank. Player eliminated from the island.",
+                            financial=f"-${abs(player['capital'])} deficit",
+                            category="BANKRUPT"
+                        )
                         voice_text = f"Survivor eliminated! {player['name']} has declared bankruptcy and leaves the island."
                         audio = synthesize_voice(voice_text, "en-IN", "shubh")
                         self.broadcast({
@@ -308,11 +413,29 @@ class GameRoom:
 
         elif landed_tile["type"] == "LICENSE":
             if player["capital"] >= landed_tile["cost"] and self.finance_manager_id != player["id"]:
-                player["capital"] -= landed_tile["cost"]
+                self.change_capital(player, -landed_tile["cost"])
                 self.spend_notes(player, landed_tile["cost"])
                 self.finance_manager_id = player["id"]
                 self.log_event(f"🏛️ {player['name']} acquired the FINANCE MANAGER LICENSE (5% royalties on all rents & loans)!")
-                
+                self.record_action(
+                    player=player,
+                    action_title="Minister of Finance Appointed",
+                    movement=f"Landed on #{landed_tile['id']} ({landed_tile['name']})",
+                    cause=f"Acquired the government license for ${landed_tile['cost']}",
+                    effect="Will automatically receive a 5% royalty whenever another player pays rent or borrows funds",
+                    financial=f"-${landed_tile['cost']}",
+                    category="LICENSE"
+                )
+                self.broadcast({
+                    "type": "transaction_alert",
+                    "category": "LICENSE",
+                    "title": "FINANCE MINISTER APPOINTED",
+                    "minister_id": player["id"],
+                    "minister_name": player["name"],
+                    "minister_hex": player["hex"],
+                    "tile_name": landed_tile["name"],
+                    "cost": landed_tile["cost"]
+                })
                 # Voice announcement
                 voice_text = f"Notice! {player['name']} has acquired the Ministry of Finance license. A five percent toll is now active across the island."
                 audio = synthesize_voice(voice_text, "en-IN", "aditya")
@@ -332,6 +455,16 @@ class GameRoom:
         card = self.calamity_deck.pop(0)
         self.calamity_deck.append(card)
         self.log_event(f"⚡ Calamity: {card['title']} - {card['desc']}")
+
+        self.record_action(
+            player=player,
+            action_title=f"Calamity: {card['title']}",
+            movement=f"Triggered at Tile #{player['pos']}",
+            cause="Landed on Island Wilderness Hazard Sector",
+            effect=card["desc"],
+            financial="-$50 tax" if card["type"] == "TAX_50" else "+$150 salvage" if card["type"] == "SALVAGE_150" else "Sectors Damaged",
+            category="CALAMITY"
+        )
 
         # Voice broadcast of island calamity
         voice_text = f"Emergency Alert! {card['title']}. {card['desc']}"
@@ -356,12 +489,12 @@ class GameRoom:
                 if t["sector"] == "Jungle" and t["state"] != "RUINED":
                     t["state"] = "RUINED"
         elif card["type"] == "SALVAGE_150":
-            player["capital"] += 150
+            self.change_capital(player, 150)
             self.add_notes(player, 150)
         elif card["type"] == "TAX_50":
             for p in self.slots:
                 if not p["is_bankrupt"]:
-                    p["capital"] = max(0, p["capital"] - 50)
+                    self.change_capital(p, -50)
                     self.spend_notes(p, 50)
 
     def generate_radio_broadcast(self, lang="en-IN", speaker="ashwin_en_sports_energetic"):
@@ -409,6 +542,37 @@ class GameRoom:
             self.winner_id = active[0]["id"] if active else -1
             winner_name = active[0]["name"] if active else "Nobody"
             self.log_event(f"🏆 VICTORY! {winner_name} is the last survivor standing!")
+
+            # Detailed survival dossier & high/low scorecard
+            standings = []
+            for p in self.slots:
+                prop_val = sum(self.tiles[tid]["cost"] for tid in p["properties"])
+                net_worth = p["capital"] + prop_val
+                standings.append({
+                    "id": p["id"],
+                    "name": p["name"],
+                    "color": p["color"],
+                    "hex": p["hex"],
+                    "final_capital": p["capital"],
+                    "peak_capital": p.get("peak_capital", p["capital"]),
+                    "lowest_capital": p.get("lowest_capital", p["capital"]),
+                    "net_worth": net_worth,
+                    "properties_count": len(p["properties"]),
+                    "total_rent_paid": p.get("total_rent_paid", 0),
+                    "total_rent_earned": p.get("total_rent_earned", 0),
+                    "is_bankrupt": p["is_bankrupt"]
+                })
+            standings.sort(key=lambda s: (not s["is_bankrupt"], s["net_worth"]), reverse=True)
+            for idx, s in enumerate(standings, 1):
+                s["rank"] = idx
+
+            self.broadcast({
+                "type": "game_over_celebration",
+                "winner_id": self.winner_id,
+                "winner_name": winner_name,
+                "standings": standings
+            })
+
             voice_text = f"Game Over! Victory belongs to {winner_name}, the supreme survivor of Castaway Capital!"
             audio = synthesize_voice(voice_text, "en-IN", "ashwin_en_sports_energetic")
             self.broadcast({

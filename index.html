@@ -61,6 +61,44 @@
     .soundwave-active span:nth-child(1) { animation: soundwave-pulse 0.4s infinite ease-in-out; }
     .soundwave-active span:nth-child(2) { animation: soundwave-pulse 0.5s infinite ease-in-out 0.15s; }
     .soundwave-active span:nth-child(3) { animation: soundwave-pulse 0.45s infinite ease-in-out 0.3s; }
+
+    @keyframes float-money-up {
+      0% { transform: translate(-50%, 0) scale(0.8); opacity: 0; }
+      20% { transform: translate(-50%, -15px) scale(1.15); opacity: 1; }
+      70% { transform: translate(-50%, -45px) scale(1.0); opacity: 1; }
+      100% { transform: translate(-50%, -75px) scale(0.9); opacity: 0; }
+    }
+    .floating-money-node {
+      position: absolute;
+      pointer-events: none;
+      z-index: 100;
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 900;
+      font-size: 20px;
+      text-shadow: 0 4px 12px rgba(0,0,0,0.8);
+      animation: float-money-up 1.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+    .money-lost { color: #f87171; }
+    .money-gained { color: #34d399; }
+
+    @keyframes flash-red {
+      0%, 100% { box-shadow: 0 0 0 rgba(239, 68, 68, 0); }
+      50% { box-shadow: 0 0 25px rgba(239, 68, 68, 0.9); border-color: #ef4444; }
+    }
+    @keyframes flash-green {
+      0%, 100% { box-shadow: 0 0 0 rgba(16, 185, 129, 0); }
+      50% { box-shadow: 0 0 25px rgba(16, 185, 129, 0.9); border-color: #10b981; }
+    }
+    .flash-loss { animation: flash-red 0.8s ease-in-out 2; }
+    .flash-gain { animation: flash-green 0.8s ease-in-out 2; }
+
+    .circuit-tile-card {
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .circuit-tile-card:hover {
+      transform: translateY(-3px);
+      filter: brightness(1.2);
+    }
   </style>
 </head>
 <body class="bg-slate-950 text-slate-100 h-screen w-screen overflow-hidden select-none">
@@ -237,6 +275,11 @@
           <option value="follow">🎯 Follow Active Pawn</option>
         </select>
 
+        <button id="btn-toggle-circuit" title="Toggle 24-Block Circuit Map" class="px-3 py-2 rounded-xl text-xs font-bold bg-cyan-600/30 hover:bg-cyan-600/50 text-cyan-200 border border-cyan-500/50 flex items-center gap-1.5 transition">
+          <i data-lucide="map" class="w-3.5 h-3.5"></i>
+          <span>Circuit Map</span>
+        </button>
+
         <button id="btn-share-room" title="Copy Invite Link" class="px-3.5 py-2 rounded-xl text-xs font-semibold bg-orange-500/20 hover:bg-orange-500/30 text-orange-300 border border-orange-500/40 flex items-center gap-1.5 transition">
           <i data-lucide="share-2" class="w-3.5 h-3.5"></i>
           <span>Share Room</span>
@@ -248,17 +291,61 @@
       </div>
     </header>
 
-    <!-- Center Workspace: Left Wallets & Right Inspector/Chat -->
-    <div class="flex-1 flex justify-between items-start gap-4 my-3 overflow-hidden">
+    <!-- WHAT AM I DOING? ACTIVE TURN MISSION DIRECTIVE BAR -->
+    <div id="mission-directive-bar" class="pointer-events-auto glass-panel rounded-2xl px-4 py-2.5 my-2 flex items-center justify-between border border-orange-500/40 shadow-xl">
+      <div class="flex items-center gap-3">
+        <div id="directive-step-badge" class="px-2.5 py-1 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 text-slate-950 font-black text-xs uppercase tracking-wider font-mono shadow-md shadow-orange-500/30">
+          STEP 1: ROLL
+        </div>
+        <div>
+          <div id="directive-title" class="text-xs sm:text-sm font-extrabold text-white flex items-center gap-2">
+            <span>🎲 Your Turn: Roll the dice to navigate across the 24-sector island</span>
+          </div>
+          <div id="directive-subtitle" class="text-[11px] text-slate-400 mt-0.5">
+            You are stationed at Base Camp Alpha (#0). Press [ROLL DICE] below to move.
+          </div>
+        </div>
+      </div>
+      <div class="hidden md:flex items-center gap-2 text-xs font-mono">
+        <span class="text-slate-400">Survival Goal:</span>
+        <span class="px-2.5 py-1 rounded-lg bg-slate-900/90 text-amber-300 border border-slate-800 font-bold">
+          Buy Sectors • Fortify Strongholds • Bankrupt Rivals
+        </span>
+      </div>
+    </div>
 
-      <!-- LEFT SIDEBAR: 4-Player Physical Currency Wallets -->
+    <!-- 24-BLOCK INTERACTIVE CIRCUIT MINIMAP (EXPANDABLE) -->
+    <div id="board-circuit-container" class="pointer-events-auto glass-panel rounded-2xl p-2.5 mb-2 border border-slate-700/70 shadow-2xl overflow-hidden transition-all duration-300">
+      <div class="flex items-center justify-between mb-1.5 px-1">
+        <div class="flex items-center gap-2">
+          <span class="text-[11px] font-black uppercase tracking-wider text-cyan-300 flex items-center gap-1.5">
+            <i data-lucide="compass" class="w-3.5 h-3.5"></i> 24-Block Island Board Circuit (Click any block to focus)
+          </span>
+          <span class="text-[10px] text-slate-400 font-mono">(0 = Base Camp, clockwise circuit)</span>
+        </div>
+        <div class="flex items-center gap-2 text-[10px]">
+          <span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-red-500"></span>P1</span>
+          <span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-blue-500"></span>P2</span>
+          <span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-emerald-500"></span>P3</span>
+          <span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-amber-500"></span>P4</span>
+        </div>
+      </div>
+      <div id="board-circuit-strip" class="flex gap-1.5 overflow-x-auto py-1 px-0.5">
+        <!-- 24 interactive block cards rendered by JS -->
+      </div>
+    </div>
+
+    <!-- Center Workspace: Left Wallets & Right Inspector/History -->
+    <div class="flex-1 flex justify-between items-start gap-4 my-1 overflow-hidden">
+
+      <!-- LEFT SIDEBAR: 4-Player Physical Currency Wallets & Scorecard -->
       <aside class="pointer-events-auto glass-panel rounded-2xl w-80 max-h-full flex flex-col p-3.5 overflow-hidden shadow-2xl">
         <div class="flex items-center justify-between pb-2 mb-2 border-b border-slate-800/80">
           <h2 class="text-xs font-extrabold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
             <i data-lucide="wallet" class="w-4 h-4 text-emerald-400"></i>
-            Physical Note Wallets
+            Survivor Ledgers & Wallets
           </h2>
-          <span class="text-[10px] text-slate-500 font-mono">7 Denominations</span>
+          <span class="text-[10px] text-slate-400 font-mono">High / Low Tracked</span>
         </div>
 
         <div id="player-wallets-list" class="space-y-2.5 overflow-y-auto pr-1">
@@ -271,20 +358,20 @@
         </div>
       </aside>
 
-      <!-- RIGHT SIDEBAR: Tile Inspector & Live Room Chat -->
-      <aside class="pointer-events-auto glass-panel rounded-2xl w-80 max-h-full flex flex-col p-3.5 overflow-hidden shadow-2xl">
+      <!-- RIGHT SIDEBAR: Tile Inspector & Cause-Effect History -->
+      <aside class="pointer-events-auto glass-panel rounded-2xl w-84 max-h-full flex flex-col p-3.5 overflow-hidden shadow-2xl">
         <!-- Tile Inspector Dossier -->
-        <div class="pb-3 border-b border-slate-800/80">
-          <div class="flex items-center justify-between mb-1.5">
+        <div class="pb-2.5 border-b border-slate-800/80">
+          <div class="flex items-center justify-between mb-1">
             <span class="text-[10px] font-bold uppercase tracking-wider text-cyan-400 flex items-center gap-1">
               <i data-lucide="map-pin" class="w-3 h-3"></i> 3D Sector Dossier
             </span>
-            <span id="inspect-tag" class="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">Click any tile</span>
+            <span id="inspect-tag" class="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">Click any block</span>
           </div>
           <h3 id="inspect-title" class="text-sm font-bold text-white truncate">Select a Sector on Island</h3>
-          <p id="inspect-desc" class="text-xs text-slate-400 mt-0.5">Click any 3D tile on the board to view owner, rent values, and fortification status.</p>
+          <p id="inspect-desc" class="text-[11px] text-slate-400 mt-0.5">Click any 3D block to see purchase cost, rent, and owner fortification status.</p>
 
-          <div id="inspect-stats" class="grid grid-cols-2 gap-2 mt-3 text-xs hidden">
+          <div id="inspect-stats" class="grid grid-cols-2 gap-2 mt-2 text-xs hidden">
             <div class="bg-slate-900/80 p-2 rounded-lg border border-slate-800">
               <div class="text-[10px] text-slate-500 uppercase">Current Rent</div>
               <div id="inspect-rent" class="text-emerald-400 font-bold font-mono">$0</div>
@@ -296,15 +383,27 @@
           </div>
         </div>
 
-        <!-- In-Game Multiplayer Chat & Events Tab -->
-        <div class="flex-1 flex flex-col min-h-0 mt-3">
-          <div class="flex items-center justify-between mb-1.5">
-            <h4 class="text-[11px] font-extrabold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
-              <i data-lucide="message-square" class="w-3.5 h-3.5 text-cyan-400"></i> Island Comms & Events
-            </h4>
-            <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
-          </div>
+        <!-- Right Tabs: Cause & Effect History vs Island Chat -->
+        <div class="flex border-b border-slate-800 my-2 text-xs">
+          <button id="tab-cause-effect" class="flex-1 py-1.5 font-bold text-orange-400 border-b-2 border-orange-500 transition flex items-center justify-center gap-1">
+            <i data-lucide="activity" class="w-3.5 h-3.5"></i>
+            <span>Action Cause & Effect</span>
+          </button>
+          <button id="tab-room-chat" class="flex-1 py-1.5 font-medium text-slate-400 hover:text-slate-200 transition flex items-center justify-center gap-1">
+            <i data-lucide="message-square" class="w-3.5 h-3.5"></i>
+            <span>Island Comms</span>
+          </button>
+        </div>
 
+        <!-- Container 1: Cause & Effect History Ledger -->
+        <div id="view-cause-effect" class="flex-1 overflow-y-auto space-y-2 pr-1 min-h-0">
+          <div id="cause-effect-list" class="space-y-2">
+            <!-- Dynamic cause & effect cards populated by JS -->
+          </div>
+        </div>
+
+        <!-- Container 2: Chat & Raw Events Log (Hidden by default) -->
+        <div id="view-room-chat" class="flex-1 flex flex-col min-h-0 hidden">
           <div id="events-log" class="flex-1 overflow-y-auto space-y-1.5 text-xs text-slate-300 font-mono pr-1">
             <!-- Messages stream -->
           </div>
@@ -373,6 +472,91 @@
       </div>
     </footer>
 
+  </div>
+
+  <!-- FLOATING MONEY DELTA CONTAINER (Particles & Delta Text) -->
+  <div id="floating-money-container" class="fixed inset-0 pointer-events-none z-40 overflow-hidden"></div>
+
+  <!-- ACTIVE TRANSACTION RECEIPT OVERLAY (CINEMATIC HOUSE CALL) -->
+  <div id="transaction-alert-modal" class="fixed top-8 left-1/2 -translate-x-1/2 z-50 pointer-events-none transition-all duration-300 opacity-0 -translate-y-6 scale-95 max-w-lg w-full px-4">
+    <div class="glass-panel rounded-3xl p-5 shadow-2xl border-2 border-orange-500/80 bg-slate-950/95 pointer-events-auto">
+      <div class="flex items-center justify-between pb-3 mb-3 border-b border-slate-800">
+        <div class="flex items-center gap-2">
+          <div class="w-8 h-8 rounded-xl bg-orange-500/20 text-orange-400 border border-orange-500/40 flex items-center justify-center font-black">
+            🏠
+          </div>
+          <div>
+            <h4 id="tx-title" class="text-xs font-black uppercase tracking-wider text-orange-400">
+              House Call: Rent Surrendered
+            </h4>
+            <div id="tx-subtitle" class="text-[11px] text-slate-300">
+              Player stepped into rival property
+            </div>
+          </div>
+        </div>
+        <span id="tx-category-badge" class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-orange-500/20 text-orange-300 border border-orange-500/40">
+          RENT TRANSACTION
+        </span>
+      </div>
+
+      <!-- Transaction Line Items Breakdown -->
+      <div class="space-y-2 text-xs font-mono">
+        <div class="flex items-center justify-between p-2 rounded-xl bg-slate-900/90 border border-slate-800">
+          <span class="text-slate-400">Sector Visited:</span>
+          <span id="tx-sector-name" class="font-bold text-white">Jaguar Den (FORTIFIED)</span>
+        </div>
+        <div class="flex items-center justify-between p-2 rounded-xl bg-slate-900/90 border border-slate-800">
+          <span class="text-slate-400">Tenant (Payer):</span>
+          <span id="tx-tenant-name" class="font-bold text-red-400">Player 1 (Red)</span>
+        </div>
+        <div class="flex items-center justify-between p-2 rounded-xl bg-slate-900/90 border border-slate-800">
+          <span class="text-slate-400">Landlord (Recipient):</span>
+          <span id="tx-landlord-name" class="font-bold text-blue-400">Player 2 (Blue)</span>
+        </div>
+        <div class="flex items-center justify-between p-2.5 rounded-xl bg-red-950/40 border border-red-500/30 text-sm">
+          <span class="font-bold text-slate-200">Total Deducted:</span>
+          <span id="tx-total-amount" class="font-black text-red-400">-$95.00</span>
+        </div>
+        <div id="tx-minister-cut-row" class="flex items-center justify-between text-[11px] px-2 text-amber-300">
+          <span>🏛️ Ministry Royalty (5%):</span>
+          <span id="tx-minister-cut">-$5.00</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CINEMATIC WIN / SURVIVAL SUPREME CELEBRATION MODAL -->
+  <div id="win-celebration-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/90 backdrop-blur-md p-4 hidden">
+    <canvas id="confetti-canvas" class="absolute inset-0 pointer-events-none z-0"></canvas>
+    <div class="glass-panel w-full max-w-xl rounded-3xl p-6 shadow-2xl border-2 border-amber-500/80 relative z-10 bg-slate-950/95">
+      <div class="text-center mb-5">
+        <div class="w-16 h-16 mx-auto rounded-3xl bg-gradient-to-tr from-amber-400 via-orange-500 to-red-500 flex items-center justify-center text-3xl shadow-xl shadow-amber-500/40 mb-3 animate-bounce">
+          🏆
+        </div>
+        <h2 class="text-2xl font-black text-white tracking-tight">SURVIVOR SUPREME</h2>
+        <p id="win-winner-label" class="text-sm font-extrabold text-amber-400 mt-1">Player 1 (Red) has conquered the Island of Ruin!</p>
+        <p class="text-xs text-slate-400 mt-1">All competing survivors have succumbed to natural calamities and bankruptcy.</p>
+      </div>
+
+      <!-- Complete Survival High/Low Scorecard -->
+      <div class="mb-5">
+        <h3 class="text-xs font-black uppercase tracking-wider text-slate-300 mb-2 flex items-center gap-1.5">
+          <i data-lucide="bar-chart-3" class="w-3.5 h-3.5 text-amber-400"></i> Final Survivor Ledger & Scorecard
+        </h3>
+        <div id="win-standings-table" class="space-y-2">
+          <!-- Dynamic rank cards -->
+        </div>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <button id="btn-play-again" class="flex-1 py-3.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 font-extrabold text-sm text-white shadow-lg shadow-emerald-500/30 transition">
+          🔄 Play Again / Rematch
+        </button>
+        <button id="btn-close-win-modal" class="px-5 py-3.5 rounded-xl bg-slate-800 hover:bg-slate-700 font-bold text-xs text-slate-300 transition">
+          Inspect Board
+        </button>
+      </div>
+    </div>
   </div>
 
   <!-- Audio Synthesizer (Web Audio API) -->
@@ -524,15 +708,17 @@
       currentTurnIndex: 0,
       financeManagerId: -1,
       gameOver: false,
+      winnerId: -1,
       hasRolledThisTurn: false,
       players: [
-        { id: 0, name: "Player 1", color: "Red", hex: "#EF4444", threeColor: 0xef4444, pos: 0, capital: 1500, isBot: false, isBankrupt: false, notes: {500:2, 100:2, 50:2, 20:6, 10:5, 5:5, 1:5}, properties: [] },
-        { id: 1, name: "Navigator", color: "Blue", hex: "#3B82F6", threeColor: 0x3b82f6, pos: 0, capital: 1500, isBot: true, isBankrupt: false, notes: {500:2, 100:2, 50:2, 20:6, 10:5, 5:5, 1:5}, properties: [] },
-        { id: 2, name: "Engineer", color: "Green", hex: "#10B981", threeColor: 0x10b981, pos: 0, capital: 1500, isBot: true, isBankrupt: false, notes: {500:2, 100:2, 50:2, 20:6, 10:5, 5:5, 1:5}, properties: [] },
-        { id: 3, name: "Scavenger", color: "Gold", hex: "#F59E0B", threeColor: 0xf59e0b, pos: 0, capital: 1500, isBot: true, isBankrupt: false, notes: {500:2, 100:2, 50:2, 20:6, 10:5, 5:5, 1:5}, properties: [] }
+        { id: 0, name: "Player 1", color: "Red", hex: "#EF4444", threeColor: 0xef4444, pos: 0, capital: 1500, peakCapital: 1500, lowestCapital: 1500, totalRentPaid: 0, totalRentEarned: 0, isBot: false, isBankrupt: false, notes: {500:2, 100:2, 50:2, 20:6, 10:5, 5:5, 1:5}, properties: [] },
+        { id: 1, name: "Navigator", color: "Blue", hex: "#3B82F6", threeColor: 0x3b82f6, pos: 0, capital: 1500, peakCapital: 1500, lowestCapital: 1500, totalRentPaid: 0, totalRentEarned: 0, isBot: true, isBankrupt: false, notes: {500:2, 100:2, 50:2, 20:6, 10:5, 5:5, 1:5}, properties: [] },
+        { id: 2, name: "Engineer", color: "Green", hex: "#10B981", threeColor: 0x10b981, pos: 0, capital: 1500, peakCapital: 1500, lowestCapital: 1500, totalRentPaid: 0, totalRentEarned: 0, isBot: true, isBankrupt: false, notes: {500:2, 100:2, 50:2, 20:6, 10:5, 5:5, 1:5}, properties: [] },
+        { id: 3, name: "Scavenger", color: "Gold", hex: "#F59E0B", threeColor: 0xf59e0b, pos: 0, capital: 1500, peakCapital: 1500, lowestCapital: 1500, totalRentPaid: 0, totalRentEarned: 0, isBot: true, isBankrupt: false, notes: {500:2, 100:2, 50:2, 20:6, 10:5, 5:5, 1:5}, properties: [] }
       ],
       tiles: TILE_DATA.map(t => ({ ...t, ownerId: -1, state: "PRISTINE", isMortgaged: false })),
       recentEvents: ["Welcome to Castaway Capital: Island of Ruin!"],
+      actionHistory: [],
       chatMessages: []
     };
 
@@ -668,6 +854,133 @@
       return tree;
     }
 
+    function createTileTexture(tile, idx) {
+      const canvas = document.createElement('canvas');
+      canvas.width = 512;
+      canvas.height = 512;
+      const ctx = canvas.getContext('2d');
+
+      // Base background
+      ctx.fillStyle = '#0f172a';
+      ctx.fillRect(0, 0, 512, 512);
+
+      // Sector Header Stripe
+      const hexColor = '#' + tile.color.toString(16).padStart(6, '0');
+      ctx.fillStyle = hexColor;
+      ctx.fillRect(0, 0, 512, 100);
+
+      // Sector Header Text
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 36px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(tile.sector.toUpperCase(), 256, 65);
+
+      // Tile Number Badge
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = 'bold 38px monospace';
+      ctx.fillText(`BLOCK #${idx}`, 256, 160);
+
+      // Tile Name (Large, crisp, high contrast)
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 44px sans-serif';
+      ctx.shadowColor = 'rgba(0,0,0,0.9)';
+      ctx.shadowBlur = 10;
+
+      const words = tile.name.split(' ');
+      if (words.length > 2) {
+        ctx.fillText(words.slice(0, 2).join(' '), 256, 235);
+        ctx.fillText(words.slice(2).join(' '), 256, 290);
+      } else {
+        ctx.fillText(tile.name, 256, 255);
+      }
+      ctx.shadowBlur = 0;
+
+      // Bottom Info Box
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.95)';
+      ctx.fillRect(20, 360, 472, 125);
+      ctx.strokeStyle = hexColor;
+      ctx.lineWidth = 4;
+      ctx.strokeRect(20, 360, 472, 125);
+
+      if (tile.type === "PROPERTY") {
+        ctx.fillStyle = '#38bdf8';
+        ctx.font = 'bold 36px monospace';
+        ctx.fillText(`BUY: $${tile.cost}`, 256, 410);
+        ctx.fillStyle = '#34d399';
+        ctx.font = 'bold 30px monospace';
+        ctx.fillText(`RENT: $${tile.rent} (FORT $${tile.fortifiedRent})`, 256, 455);
+      } else if (tile.type === "BASE_CAMP") {
+        ctx.fillStyle = '#34d399';
+        ctx.font = 'bold 40px monospace';
+        ctx.fillText(`SALARY +$200`, 256, 435);
+      } else if (tile.type === "LICENSE") {
+        ctx.fillStyle = '#fbbf24';
+        ctx.font = 'bold 36px monospace';
+        ctx.fillText(`FEE: $${tile.cost}`, 256, 410);
+        ctx.fillStyle = '#fde68a';
+        ctx.font = 'bold 28px monospace';
+        ctx.fillText(`5% TAX CUT ROYALTY`, 256, 455);
+      } else if (tile.type === "UTILITY") {
+        ctx.fillStyle = '#60a5fa';
+        ctx.font = 'bold 36px monospace';
+        ctx.fillText(`TRANSIT MONOPOLY`, 256, 410);
+        ctx.fillStyle = '#93c5fd';
+        ctx.font = 'bold 28px monospace';
+        ctx.fillText(`TOLL: $${tile.rent} / 1d6 Sabotage`, 256, 455);
+      } else if (tile.type === "EVENT") {
+        ctx.fillStyle = '#f87171';
+        ctx.font = 'bold 40px monospace';
+        ctx.fillText(`⚡ ISLAND CALAMITY`, 256, 435);
+      }
+
+      // Outer border
+      ctx.strokeStyle = hexColor;
+      ctx.lineWidth = 18;
+      ctx.strokeRect(9, 9, 494, 494);
+
+      const texture = new THREE.CanvasTexture(canvas);
+      texture.needsUpdate = true;
+      return texture;
+    }
+
+    function createTileBillboardSprite(tile, idx) {
+      const canvas = document.createElement('canvas');
+      canvas.width = 384;
+      canvas.height = 120;
+      const ctx = canvas.getContext('2d');
+
+      // Rounded pill badge
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.95)';
+      ctx.beginPath();
+      ctx.roundRect(8, 8, 368, 104, 18);
+      ctx.fill();
+
+      const hexColor = '#' + tile.color.toString(16).padStart(6, '0');
+      ctx.strokeStyle = hexColor;
+      ctx.lineWidth = 6;
+      ctx.stroke();
+
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 30px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(`#${idx} ${tile.name}`, 192, 52);
+
+      ctx.fillStyle = '#38bdf8';
+      ctx.font = 'bold 24px monospace';
+      const sub = tile.type === 'PROPERTY' ? `Buy $${tile.cost} • Rent $${tile.rent}` :
+                  tile.type === 'BASE_CAMP' ? `+$200 Salary` :
+                  tile.type === 'LICENSE' ? `Fee $${tile.cost} • 5% Tax` :
+                  tile.type === 'UTILITY' ? `Toll $${tile.rent}` : `⚡ Hazard`;
+      ctx.fillText(sub, 192, 88);
+
+      const texture = new THREE.CanvasTexture(canvas);
+      const spriteMat = new THREE.SpriteMaterial({ map: texture, transparent: true, opacity: 0.95 });
+      const sprite = new THREE.Sprite(spriteMat);
+      sprite.scale.set(4.5, 1.4, 1.0);
+      sprite.position.y = 2.9;
+      return sprite;
+    }
+
     function buildBoardTiles() {
       TILE_DATA.forEach((tile, idx) => {
         const coords = getTileCoordinates(idx);
@@ -680,10 +993,16 @@
         slab.castShadow = true;
         group.add(slab);
 
-        const topFace = new THREE.Mesh(new THREE.BoxGeometry(5.1, 0.1, 5.1), new THREE.MeshStandardMaterial({ color: tile.color, roughness: 0.3 }));
+        // Top Face with Custom Canvas Label
+        const topTexture = createTileTexture(tile, idx);
+        const topFace = new THREE.Mesh(new THREE.BoxGeometry(5.1, 0.1, 5.1), new THREE.MeshStandardMaterial({ map: topTexture, roughness: 0.25 }));
         topFace.position.y = 0.5;
         topFace.receiveShadow = true;
         group.add(topFace);
+
+        // Floating 3D Billboard Sprite above Tile
+        const billboard = createTileBillboardSprite(tile, idx);
+        group.add(billboard);
 
         if (tile.type === "BASE_CAMP") {
           const beacon = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.7, 2.2, 8), new THREE.MeshStandardMaterial({ color: 0x06b6d4, emissive: 0x06b6d4, emissiveIntensity: 0.6 }));
@@ -902,6 +1221,15 @@
             handleDiceRollEvent(data);
           } else if (data.type === "voice_announcement") {
             handleVoiceAnnouncement(data);
+          } else if (data.type === "action_recorded") {
+            gameState.actionHistory.push(data.entry);
+            renderCauseEffectList();
+          } else if (data.type === "transaction_alert") {
+            showTransactionAlert(data);
+          } else if (data.type === "game_over_celebration") {
+            gameState.gameOver = true;
+            gameState.winnerId = data.winner_id;
+            triggerWinCelebration(data.winner_id, data.standings);
           } else if (data.type === "chat_message") {
             addChatMessage(data.chat);
           } else if (data.type === "error") {
@@ -930,15 +1258,27 @@
       gameState.currentTurnIndex = data.current_turn_index;
       gameState.financeManagerId = data.finance_manager_id;
       gameState.gameOver = data.game_over;
+      if (data.action_history) {
+        gameState.actionHistory = data.action_history;
+      }
 
       if (data.players && data.players.length === 4) {
         data.players.forEach((p, i) => {
           gameState.players[i].name = p.name;
           gameState.players[i].pos = p.pos;
+          const oldCapital = gameState.players[i].capital;
           gameState.players[i].capital = p.capital;
+          gameState.players[i].peakCapital = p.peak_capital !== undefined ? p.peak_capital : p.capital;
+          gameState.players[i].lowestCapital = p.lowest_capital !== undefined ? p.lowest_capital : p.capital;
+          gameState.players[i].totalRentPaid = p.total_rent_paid || 0;
+          gameState.players[i].totalRentEarned = p.total_rent_earned || 0;
           gameState.players[i].isBankrupt = p.is_bankrupt;
           gameState.players[i].notes = p.notes;
           gameState.players[i].properties = p.properties || [];
+
+          if (oldCapital !== undefined && oldCapital !== p.capital) {
+            triggerMoneyDelta(i, p.capital - oldCapital);
+          }
 
           const coords = getTileCoordinates(p.pos);
           const offset = getPawnOffset(i);
@@ -1015,6 +1355,367 @@
       errEl.classList.remove('hidden');
     }
 
+    function focusCameraOnTile(idx) {
+      const coords = getTileCoordinates(idx);
+      controls.target.set(coords.x, coords.y, coords.z);
+      camera.position.set(coords.x * 1.35, coords.y + 24, coords.z * 1.35 + 18);
+    }
+
+    function buildCircuitMinimap() {
+      const strip = document.getElementById('board-circuit-strip');
+      if (!strip) return;
+      strip.innerHTML = '';
+
+      TILE_DATA.forEach((tile, idx) => {
+        const card = document.createElement('div');
+        card.id = `circuit-tile-${idx}`;
+        const hexColor = '#' + tile.color.toString(16).padStart(6, '0');
+        card.className = "circuit-tile-card flex-shrink-0 w-32 p-2 rounded-xl bg-slate-900/90 border border-slate-800 text-xs cursor-pointer select-none relative";
+        card.innerHTML = `
+          <div class="flex items-center justify-between mb-1">
+            <span class="font-mono font-bold text-slate-400 text-[10px]">BLOCK #${idx}</span>
+            <span class="w-2.5 h-2.5 rounded-full" style="background-color: ${hexColor}"></span>
+          </div>
+          <div class="font-extrabold text-white truncate text-[11px]" title="${tile.name}">${tile.name}</div>
+          <div id="circuit-owner-${idx}" class="text-[10px] text-slate-400 truncate mt-0.5 font-mono">
+            ${tile.type === 'PROPERTY' ? '$' + tile.cost + ' (Rent $' + tile.rent + ')' :
+              tile.type === 'BASE_CAMP' ? '+$200 Lap Salary' :
+              tile.type === 'LICENSE' ? '$' + tile.cost + ' 5% Tax Cut' :
+              tile.type === 'UTILITY' ? 'Transit Toll $' + tile.rent : '⚡ Calamity'}
+          </div>
+          <div id="circuit-pawns-${idx}" class="flex items-center gap-1 mt-1.5 min-h-[14px]">
+            <!-- Dynamic pawn indicators -->
+          </div>
+        `;
+        card.addEventListener('click', () => {
+          inspectTile(idx);
+          focusCameraOnTile(idx);
+        });
+        strip.appendChild(card);
+      });
+    }
+
+    function updateCircuitStrip() {
+      TILE_DATA.forEach((tile, idx) => {
+        const pawnContainer = document.getElementById(`circuit-pawns-${idx}`);
+        const ownerEl = document.getElementById(`circuit-owner-${idx}`);
+        const cardEl = document.getElementById(`circuit-tile-${idx}`);
+        if (!pawnContainer || !cardEl) return;
+
+        // Reset pawns
+        pawnContainer.innerHTML = '';
+        gameState.players.forEach(p => {
+          if (p.pos === idx && !p.isBankrupt) {
+            const pin = document.createElement('span');
+            pin.className = "w-3.5 h-3.5 rounded-full flex items-center justify-center text-[9px] font-black text-white shadow-sm";
+            pin.style.backgroundColor = p.hex;
+            pin.textContent = p.name.charAt(0);
+            pin.title = `${p.name} standing here`;
+            pawnContainer.appendChild(pin);
+          }
+        });
+
+        // Highlight active player's tile
+        const curPlayer = gameState.players[gameState.currentTurnIndex];
+        if (curPlayer.pos === idx) {
+          cardEl.className = "circuit-tile-card flex-shrink-0 w-32 p-2 rounded-xl bg-orange-950/60 border-2 border-orange-500 text-xs cursor-pointer select-none shadow-lg shadow-orange-500/20";
+        } else {
+          cardEl.className = "circuit-tile-card flex-shrink-0 w-32 p-2 rounded-xl bg-slate-900/90 border border-slate-800 text-xs cursor-pointer select-none";
+        }
+
+        // Ownership state
+        const liveTile = gameState.tiles[idx];
+        if (liveTile && liveTile.ownerId !== -1) {
+          const owner = gameState.players[liveTile.ownerId];
+          if (ownerEl) {
+            ownerEl.innerHTML = `<span style="color: ${owner.hex}" class="font-bold">Owned by ${owner.name}</span> (${liveTile.state})`;
+          }
+        }
+      });
+    }
+
+    function updateDirectiveBanner() {
+      const isMyTurn = gameState.isOnline 
+        ? (gameState.currentTurnIndex === gameState.mySlot)
+        : (gameState.currentTurnIndex === 0 && !gameState.gameOver);
+
+      const curPlayer = gameState.players[gameState.currentTurnIndex];
+      const curTile = gameState.tiles[curPlayer.pos];
+      const stepBadge = document.getElementById('directive-step-badge');
+      const titleEl = document.getElementById('directive-title');
+      const subEl = document.getElementById('directive-subtitle');
+
+      if (!stepBadge || !titleEl || !subEl) return;
+
+      if (gameState.gameOver) {
+        stepBadge.textContent = "MATCH OVER";
+        stepBadge.className = "px-2.5 py-1 rounded-xl bg-amber-500 text-slate-950 font-black text-xs uppercase tracking-wider font-mono";
+        titleEl.innerHTML = `🏆 Survival Champion Crowned!`;
+        subEl.textContent = `All competitors eliminated. Check the final survival ledger below.`;
+        return;
+      }
+
+      if (isMyTurn) {
+        if (!gameState.hasRolledThisTurn) {
+          stepBadge.textContent = "STEP 1: ROLL";
+          stepBadge.className = "px-2.5 py-1 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 text-slate-950 font-black text-xs uppercase tracking-wider font-mono shadow-md shadow-orange-500/40 animate-pulse";
+          titleEl.innerHTML = `🎲 YOUR TURN: Roll Dice to advance across the island circuit`;
+          subEl.textContent = `You are standing on Block #${curPlayer.pos} (${curTile.name}). Press the orange [ROLL DICE] button below!`;
+        } else {
+          stepBadge.textContent = "STEP 2: ACTIONS & PASS";
+          stepBadge.className = "px-2.5 py-1 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 font-black text-xs uppercase tracking-wider font-mono shadow-md shadow-emerald-500/40";
+          titleEl.innerHTML = `📍 LANDED: Block #${curPlayer.pos} (${curTile.name})`;
+          subEl.textContent = `Sector event completed! You can now Fortify or Repair your sectors if available, then click [Pass Turn] to continue.`;
+        }
+      } else {
+        stepBadge.textContent = "WAITING";
+        stepBadge.className = "px-2.5 py-1 rounded-xl bg-slate-800 text-slate-400 font-bold text-xs uppercase tracking-wider font-mono";
+        titleEl.innerHTML = `⏳ ${curPlayer.name}'s Turn (${curPlayer.color})`;
+        subEl.textContent = `${curPlayer.name} is moving on Block #${curPlayer.pos} (${curTile.name})...`;
+      }
+    }
+
+    function renderCauseEffectList() {
+      const container = document.getElementById('cause-effect-list');
+      if (!container) return;
+      container.innerHTML = '';
+
+      const history = (gameState.actionHistory || []).slice(-15).reverse();
+      if (history.length === 0) {
+        container.innerHTML = `<div class="p-4 rounded-xl bg-slate-900/60 border border-slate-800 text-[11px] text-slate-400 text-center">No moves recorded yet. Roll the dice to launch the island circuit!</div>`;
+        return;
+      }
+
+      history.forEach(item => {
+        const card = document.createElement('div');
+        const isGain = item.financial && item.financial.startsWith('+');
+        const isLoss = item.financial && item.financial.startsWith('-');
+        const badgeColor = isGain 
+          ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40' 
+          : (isLoss ? 'bg-red-500/20 text-red-300 border-red-500/40' : 'bg-slate-800 text-slate-300 border-slate-700');
+
+        card.className = "p-2.5 rounded-xl bg-slate-900/90 border border-slate-800 text-xs space-y-1 shadow-md";
+        card.innerHTML = `
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-1.5 font-bold text-white truncate">
+              <span class="w-2.5 h-2.5 rounded-full flex-shrink-0" style="background-color: ${item.player_hex}"></span>
+              <span class="truncate">${item.player_name}: ${item.action}</span>
+            </div>
+            ${item.financial ? `<span class="px-1.5 py-0.5 rounded font-mono font-bold text-[10px] border ${badgeColor}">${item.financial}</span>` : ''}
+          </div>
+          <div class="text-[11px] text-cyan-300 font-mono flex items-center gap-1">
+            <span>📍</span> <span class="truncate">${item.movement}</span>
+          </div>
+          <div class="text-[11px] text-slate-300 bg-slate-950/60 p-2 rounded-lg border border-slate-850 space-y-1">
+            <div><span class="text-[9px] font-black uppercase text-amber-400 tracking-wider">ACTION CAUSE:</span> ${item.cause}</div>
+            <div><span class="text-[9px] font-black uppercase text-emerald-400 tracking-wider">RESULT EFFECT:</span> ${item.effect}</div>
+          </div>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    let txTimeout = null;
+    function showTransactionAlert(tx) {
+      const modal = document.getElementById('transaction-alert-modal');
+      if (!modal) return;
+
+      document.getElementById('tx-title').textContent = tx.title || "House Call: Rent Surrendered";
+      document.getElementById('tx-subtitle').textContent = tx.category === "RENT" 
+        ? `${tx.tenant_name} entered ${tx.landlord_name}'s territory`
+        : `Acquisition of ${tx.tile_name}`;
+      document.getElementById('tx-category-badge').textContent = tx.category || "TRANSACTION";
+      document.getElementById('tx-sector-name').textContent = tx.tile_name + (tx.tile_state ? ` (${tx.tile_state})` : '');
+      
+      if (tx.category === "RENT") {
+        document.getElementById('tx-tenant-name').textContent = `${tx.tenant_name}`;
+        document.getElementById('tx-tenant-name').style.color = tx.tenant_hex || '#EF4444';
+        document.getElementById('tx-landlord-name').textContent = `${tx.landlord_name}`;
+        document.getElementById('tx-landlord-name').style.color = tx.landlord_hex || '#3B82F6';
+        document.getElementById('tx-total-amount').textContent = `-$${tx.rent}.00`;
+        
+        const cutRow = document.getElementById('tx-minister-cut-row');
+        if (tx.fee > 0) {
+          cutRow.classList.remove('hidden');
+          document.getElementById('tx-minister-cut').textContent = `-$${tx.fee}.00 (to Minister)`;
+        } else {
+          cutRow.classList.add('hidden');
+        }
+      } else if (tx.category === "BUY") {
+        document.getElementById('tx-tenant-name').textContent = `${tx.buyer_name}`;
+        document.getElementById('tx-tenant-name').style.color = tx.buyer_hex || '#EF4444';
+        document.getElementById('tx-landlord-name').textContent = "Island Bank";
+        document.getElementById('tx-landlord-name').style.color = "#10B981";
+        document.getElementById('tx-total-amount').textContent = `-$${tx.cost}.00`;
+        document.getElementById('tx-minister-cut-row').classList.add('hidden');
+      }
+
+      playBeep(440, 'triangle', 0.1);
+      setTimeout(() => playBeep(880, 'sine', 0.2), 100);
+
+      modal.classList.remove('opacity-0', '-translate-y-6', 'scale-95');
+      modal.classList.add('opacity-100', 'translate-y-0', 'scale-100');
+
+      if (txTimeout) clearTimeout(txTimeout);
+      txTimeout = setTimeout(() => {
+        modal.classList.remove('opacity-100', 'translate-y-0', 'scale-100');
+        modal.classList.add('opacity-0', '-translate-y-6', 'scale-95');
+      }, 3500);
+    }
+
+    function triggerMoneyDelta(playerId, delta) {
+      if (!delta || delta === 0) return;
+      const container = document.getElementById('floating-money-container');
+      if (!container) return;
+
+      const node = document.createElement('div');
+      const isGain = delta > 0;
+      node.className = `floating-money-node ${isGain ? 'money-gained' : 'money-lost'}`;
+      node.textContent = (isGain ? '+ $' : '- $') + Math.abs(delta);
+
+      const walletCards = document.querySelectorAll('#player-wallets-list > div');
+      if (walletCards[playerId]) {
+        const rect = walletCards[playerId].getBoundingClientRect();
+        node.style.left = `${rect.left + rect.width / 2}px`;
+        node.style.top = `${rect.top + 20}px`;
+        
+        walletCards[playerId].classList.remove('flash-loss', 'flash-gain');
+        void walletCards[playerId].offsetWidth;
+        walletCards[playerId].classList.add(isGain ? 'flash-gain' : 'flash-loss');
+        setTimeout(() => {
+          if (walletCards[playerId]) walletCards[playerId].classList.remove('flash-loss', 'flash-gain');
+        }, 1600);
+      } else {
+        node.style.left = `${window.innerWidth / 2}px`;
+        node.style.top = `${window.innerHeight / 2}px`;
+      }
+
+      container.appendChild(node);
+      setTimeout(() => node.remove(), 1700);
+    }
+
+    function triggerWinCelebration(winnerId, standings) {
+      const modal = document.getElementById('win-celebration-modal');
+      if (!modal) return;
+
+      const winner = gameState.players[winnerId] || { name: "Champion", hex: "#F59E0B" };
+      document.getElementById('win-winner-label').textContent = `${winner.name} has conquered the Island of Ruin!`;
+      document.getElementById('win-winner-label').style.color = winner.hex;
+
+      const table = document.getElementById('win-standings-table');
+      table.innerHTML = '';
+
+      const sorted = standings || gameState.players.map(p => {
+        const propVal = p.properties.reduce((sum, tid) => sum + (gameState.tiles[tid]?.cost || 0), 0);
+        return {
+          id: p.id,
+          name: p.name,
+          hex: p.hex,
+          final_capital: p.capital,
+          peak_capital: p.peakCapital !== undefined ? p.peakCapital : p.capital,
+          lowest_capital: p.lowestCapital !== undefined ? p.lowestCapital : p.capital,
+          net_worth: p.capital + propVal,
+          properties_count: p.properties.length,
+          is_bankrupt: p.isBankrupt
+        };
+      }).sort((a, b) => (!a.is_bankrupt && b.is_bankrupt) ? -1 : b.net_worth - a.net_worth);
+
+      const medals = ["🥇 1st", "🥈 2nd", "🥉 3rd", "💀 4th"];
+
+      sorted.forEach((s, idx) => {
+        const row = document.createElement('div');
+        row.className = `p-3 rounded-2xl border flex items-center justify-between text-xs font-mono ${
+          idx === 0 ? 'bg-amber-500/10 border-amber-500/50 shadow-lg shadow-amber-500/10' : 'bg-slate-900/80 border-slate-800'
+        }`;
+        row.innerHTML = `
+          <div class="flex items-center gap-3">
+            <span class="font-extrabold text-sm ${idx === 0 ? 'text-amber-400' : 'text-slate-400'}">${medals[idx] || '#' + (idx + 1)}</span>
+            <div>
+              <div class="font-bold text-white flex items-center gap-1.5 text-sm">
+                <span class="w-3 h-3 rounded-full" style="background-color: ${s.hex}"></span>
+                ${s.name} ${s.is_bankrupt ? '<span class="text-[9px] text-red-400">[BANKRUPT]</span>' : ''}
+              </div>
+              <div class="text-[10px] text-slate-400 mt-0.5">
+                Sectors Held: <strong class="text-cyan-300">${s.properties_count}</strong>
+              </div>
+            </div>
+          </div>
+          <div class="text-right">
+            <div class="text-sm font-extrabold text-emerald-400 font-mono">Net: $${s.net_worth}</div>
+            <div class="text-[10px] text-slate-400">
+              <span class="text-emerald-300">Peak: $${s.peak_capital}</span> • <span class="text-orange-400">Low: $${s.lowest_capital}</span>
+            </div>
+          </div>
+        `;
+        table.appendChild(row);
+      });
+
+      modal.classList.remove('hidden');
+      startConfetti();
+    }
+
+    function startConfetti() {
+      const canvas = document.getElementById('confetti-canvas');
+      if (!canvas) return;
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      const ctx = canvas.getContext('2d');
+      const pieces = [];
+      const colors = ['#f59e0b', '#ef4444', '#10b981', '#3b82f6', '#ec4899', '#8b5cf6'];
+
+      for (let i = 0; i < 90; i++) {
+        pieces.push({
+          x: Math.random() * canvas.width,
+          y: Math.random() * canvas.height - canvas.height,
+          w: Math.random() * 8 + 4,
+          h: Math.random() * 12 + 6,
+          color: colors[Math.floor(Math.random() * colors.length)],
+          vx: Math.random() * 4 - 2,
+          vy: Math.random() * 3 + 2,
+          angle: Math.random() * 360
+        });
+      }
+
+      function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        pieces.forEach(p => {
+          p.x += p.vx;
+          p.y += p.vy;
+          p.angle += 3;
+          ctx.save();
+          ctx.translate(p.x, p.y);
+          ctx.rotate((p.angle * Math.PI) / 180);
+          ctx.fillStyle = p.color;
+          ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+          ctx.restore();
+          if (p.y > canvas.height) p.y = -20;
+        });
+        if (!document.getElementById('win-celebration-modal').classList.contains('hidden')) {
+          requestAnimationFrame(draw);
+        }
+      }
+      draw();
+    }
+
+    function recordClientAction(player, action_title, movement, cause, effect, financial="", category="INFO") {
+      const entry = {
+        id: gameState.actionHistory.length + 1,
+        round: gameState.round,
+        player_id: player.id,
+        player_name: player.name,
+        player_hex: player.hex,
+        action: action_title,
+        movement: movement,
+        cause: cause,
+        effect: effect,
+        financial: financial,
+        category: category
+      };
+      gameState.actionHistory.push(entry);
+      if (gameState.actionHistory.length > 30) gameState.actionHistory.shift();
+      renderCauseEffectList();
+    }
+
     // =========================================================================
     // 4. UI RENDERING & ACTION DISPATCH (SOLO + ONLINE UNIFIED)
     // =========================================================================
@@ -1024,13 +1725,17 @@
       document.getElementById('active-player-banner').style.color = curPlayer.hex;
       document.getElementById('lap-counter').textContent = `Lap #${gameState.round}`;
 
-      // Render Wallets
+      // Render Wallets with High / Low Capital and Net Worth
       const walletContainer = document.getElementById('player-wallets-list');
       walletContainer.innerHTML = '';
 
       gameState.players.forEach(p => {
         const isActive = p.id === gameState.currentTurnIndex;
         const isMinister = p.id === gameState.financeManagerId;
+        const propVal = p.properties.reduce((sum, tid) => sum + (gameState.tiles[tid]?.cost || 0), 0);
+        const netWorth = p.capital + propVal;
+        const peak = p.peakCapital !== undefined ? p.peakCapital : p.capital;
+        const lowest = p.lowestCapital !== undefined ? p.lowestCapital : p.capital;
 
         const card = document.createElement('div');
         card.className = `p-2.5 rounded-xl border transition-all ${
@@ -1053,11 +1758,16 @@
         card.innerHTML = `
           <div class="flex items-center justify-between mb-1.5">
             <div class="flex items-center gap-2">
-              <span class="w-3 h-3 rounded-full" style="background-color: ${p.hex}"></span>
+              <span class="w-3 h-3 rounded-full flex-shrink-0" style="background-color: ${p.hex}"></span>
               <span class="text-xs font-bold text-white">${p.name} ${(!gameState.isOnline && p.id === 0) || (gameState.isOnline && p.id === gameState.mySlot) ? '<span class="text-[9px] text-cyan-400 font-bold">[YOU]</span>' : (p.isBot ? '<span class="text-[9px] text-slate-500">[BOT]</span>' : '')}</span>
               ${isMinister ? '<span class="text-[9px] px-1 py-0.2 rounded bg-amber-500/20 text-amber-300 font-bold border border-amber-500/40">MINISTER</span>' : ''}
             </div>
             <div class="text-xs font-extrabold font-mono text-emerald-400">$${p.capital}</div>
+          </div>
+          <!-- High / Low Secured Badges -->
+          <div class="flex items-center justify-between text-[10px] font-mono px-2 py-1 rounded-lg bg-slate-950/60 border border-slate-800/80 mb-1.5">
+            <span class="text-slate-400">Net: <strong class="text-white">$${netWorth}</strong></span>
+            <span><span class="text-emerald-400 font-bold">▲ High: $${peak}</span> • <span class="text-orange-400 font-bold">▼ Low: $${lowest}</span></span>
           </div>
           <div class="flex flex-wrap gap-1 mt-1">
             ${notesHtml}
@@ -1080,9 +1790,12 @@
         eventsContainer.appendChild(item);
       });
 
+      // Directive Banner & Circuit Strip & Cause-Effect Ledger
+      updateDirectiveBanner();
+      updateCircuitStrip();
+      renderCauseEffectList();
+
       // Turn Permissions:
-      // If Solo: only enable when currentTurnIndex === 0 (Human)
-      // If Online: only enable when currentTurnIndex === mySlot
       const isMyTurn = gameState.isOnline 
         ? (gameState.currentTurnIndex === gameState.mySlot)
         : (gameState.currentTurnIndex === 0 && !gameState.gameOver);
@@ -1125,6 +1838,17 @@
     // =========================================================================
     // 5. CLIENT-SIDE SOLO SIMULATION ENGINE (FOR INSTANT LOCAL PLAY)
     // =========================================================================
+    function changePlayerCapital(player, delta) {
+      player.capital += delta;
+      if (player.capital > (player.peakCapital !== undefined ? player.peakCapital : 1500)) {
+        player.peakCapital = player.capital;
+      }
+      if (player.capital < (player.lowestCapital !== undefined ? player.lowestCapital : 1500)) {
+        player.lowestCapital = player.capital;
+      }
+      triggerMoneyDelta(player.id, delta);
+    }
+
     function clientRollDice() {
       if (gameState.gameOver || gameState.hasRolledThisTurn) return;
 
@@ -1143,14 +1867,21 @@
 
       animatePawnHop(curPlayer.id, curPlayer.pos);
 
+      // Follow camera if set
+      const camSelect = document.getElementById('camera-select');
+      if (camSelect && camSelect.value === "follow") {
+        focusCameraOnTile(curPlayer.pos);
+      }
+
       // Base Camp Salary (+200 in structured notes)
       if (curPlayer.pos < oldPos) {
-        curPlayer.capital += 200;
+        changePlayerCapital(curPlayer, 200);
         curPlayer.notes[100] = (curPlayer.notes[100] || 0) + 1;
         curPlayer.notes[50]  = (curPlayer.notes[50]  || 0) + 1;
         curPlayer.notes[20]  = (curPlayer.notes[20]  || 0) + 2;
         curPlayer.notes[10]  = (curPlayer.notes[10]  || 0) + 1;
         logClientEvent(`🏕️ ${curPlayer.name} completed a lap and collected $200 Salary notes (1x 100, 1x 50, 2x 20, 1x 10)!`);
+        recordClientAction(curPlayer, "Base Camp Lap Salary", `#${oldPos} ➔ #${curPlayer.pos}`, "Completed circular circuit past GO checkpoint", "Collected +$200 survival dividend in structured notes", "+$200", "SALARY");
         triggerSarvamTTS(`${curPlayer.name} completed a lap and collected two hundred credits salary.`);
       }
 
@@ -1160,11 +1891,21 @@
       if (landed.type === "PROPERTY") {
         if (landed.ownerId === -1) {
           if (curPlayer.capital >= landed.cost) {
-            curPlayer.capital -= landed.cost;
+            changePlayerCapital(curPlayer, -landed.cost);
             spendPlayerCash(curPlayer, landed.cost);
             landed.ownerId = curPlayer.id;
             curPlayer.properties.push(landed.id);
             logClientEvent(`🏝️ ${curPlayer.name} acquired ${landed.name} for $${landed.cost}!`);
+            showTransactionAlert({
+              title: "Sector Claimed",
+              category: "BUY",
+              buyer_name: curPlayer.name,
+              buyer_hex: curPlayer.hex,
+              cost: landed.cost,
+              tile_name: landed.name,
+              tile_state: landed.state
+            });
+            recordClientAction(curPlayer, `Acquired ${landed.name}`, `#${oldPos} ➔ #${curPlayer.pos}`, `Landed on unowned ${landed.name}`, "Secured sector deed into personal portfolio", `-$${landed.cost}`, "BUY");
           }
         } else if (landed.ownerId !== curPlayer.id) {
           const owner = gameState.players[landed.ownerId];
@@ -1174,36 +1915,66 @@
             if (gameState.financeManagerId !== -1 && gameState.financeManagerId !== curPlayer.id) {
               fee = Math.max(1, Math.floor(rent * 0.05));
               const minister = gameState.players[gameState.financeManagerId];
-              minister.capital += fee;
+              changePlayerCapital(minister, fee);
               addPlayerCash(minister, fee);
             }
             const netRent = rent - fee;
-            curPlayer.capital -= rent;
+            changePlayerCapital(curPlayer, -rent);
             spendPlayerCash(curPlayer, rent);
-            owner.capital += netRent;
+            curPlayer.totalRentPaid = (curPlayer.totalRentPaid || 0) + rent;
+
+            changePlayerCapital(owner, netRent);
             addPlayerCash(owner, netRent);
+            owner.totalRentEarned = (owner.totalRentEarned || 0) + netRent;
+
+            showTransactionAlert({
+              title: "House Call: Rent Surrendered",
+              category: "RENT",
+              tenant_name: curPlayer.name,
+              tenant_hex: curPlayer.hex,
+              landlord_name: owner.name,
+              landlord_hex: owner.hex,
+              rent: rent,
+              fee: fee,
+              tile_name: landed.name,
+              tile_state: landed.state
+            });
 
             let msg = `💰 ${curPlayer.name} paid $${netRent} rent to ${owner.name}`;
             if (fee > 0) msg += ` [🏛️ $${fee} cut to Minister]`;
             logClientEvent(msg);
 
+            recordClientAction(curPlayer, `House Call on ${owner.name}`, `#${oldPos} ➔ #${curPlayer.pos}`, `Entered ${owner.name}'s territory at ${landed.name} (${landed.state})`, `Surrendered $${netRent} rent to ${owner.name}${fee > 0 ? ` + $${fee} tax to Minister` : ''}`, `-$${rent}`, "RENT");
+
             if (curPlayer.capital < 0) {
               curPlayer.isBankrupt = true;
               logClientEvent(`💀 ${curPlayer.name} went BANKRUPT and was eliminated!`);
+              recordClientAction(curPlayer, "Survivor Bankrupt", `#${curPlayer.pos}`, "Capital fell below zero after rent payment", "Liquidated and eliminated from island match", "ELIMINATED", "CALAMITY");
               triggerSarvamTTS(`Survivor eliminated! ${curPlayer.name} is bankrupt and leaves the island.`);
             }
           }
         }
       } else if (landed.type === "LICENSE") {
         if (curPlayer.capital >= landed.cost && gameState.financeManagerId !== curPlayer.id) {
-          curPlayer.capital -= landed.cost;
+          changePlayerCapital(curPlayer, -landed.cost);
           spendPlayerCash(curPlayer, landed.cost);
           gameState.financeManagerId = curPlayer.id;
           logClientEvent(`🏛️ ${curPlayer.name} acquired the FINANCE MANAGER LICENSE (5% royalties on all rents & loans)!`);
+          showTransactionAlert({
+            title: "License Acquired",
+            category: "BUY",
+            buyer_name: curPlayer.name,
+            buyer_hex: curPlayer.hex,
+            cost: landed.cost,
+            tile_name: landed.name
+          });
+          recordClientAction(curPlayer, "Acquired Finance Ministry", `#${oldPos} ➔ #${curPlayer.pos}`, "Landed on Finance Ministry", "Secured exclusive 5% royal fee on all island transactions", `-$${landed.cost}`, "BUY");
           triggerSarvamTTS(`Notice! ${curPlayer.name} has acquired the Finance Manager license. Tolls active island-wide.`, 'aditya');
         }
       } else if (landed.type === "EVENT") {
         triggerClientEvent(curPlayer);
+      } else if (landed.type === "BASE_CAMP") {
+        recordClientAction(curPlayer, "Landed on Base Camp", `#${oldPos} ➔ #${curPlayer.pos}`, "Stationed at island HQ checkpoint", "Safe refuge; resting at camp fire", "", "INFO");
       }
 
       gameState.hasRolledThisTurn = true;
@@ -1244,22 +2015,31 @@
           if (owned.length > 0) {
             owned[0].state = "RUINED";
             logClientEvent(`⚡ Cyclone devastated ${owned[0].name} into [RUINED]!`);
+            recordClientAction(player, "Tropical Cyclone Devastation", `#${player.pos}`, "Landed on Calamity sector", `Devastated ${owned[0].name} into [RUINED] state (rent halted)`, "", "CALAMITY");
             triggerSarvamTTS(`Emergency Alert! A tropical cyclone has devastated ${owned[0].name} into ruins!`, 'shubh');
           } else {
             logClientEvent(`⚡ Offshore gale winds blew harmlessly past the island.`);
-            triggerSarvamTTS(`Offshore gale winds blew harmlessly past the island.`, 'shubh');
+            recordClientAction(player, "Offshore Gale", `#${player.pos}`, "Landed on Calamity sector", "Gale blew harmlessly out to sea with no damages", "", "INFO");
+            triggerSarvamTTS("Offshore gale winds blew harmlessly past the island.", 'shubh');
           }
         },
         () => {
-          player.capital += 150;
+          changePlayerCapital(player, 150);
           addPlayerCash(player, 150);
           logClientEvent(`📦 ${player.name} salvaged a floating cargo crate with +$150 Capital!`);
+          recordClientAction(player, "Cargo Crate Salvaged", `#${player.pos}`, "Landed on Supply Drop sector", "Salvaged high-grade gear for +$150 survival capital", "+$150", "EVENT");
           triggerSarvamTTS(`Salvage Alert! ${player.name} salvaged a floating shipping crate with 150 credits!`, 'shubh');
         },
         () => {
-          gameState.players.forEach(p => { p.capital = Math.max(0, p.capital - 40); spendPlayerCash(p, 40); });
-          logClientEvent(`🦟 Ration Spoilage: All survivors paid $40 in emergency supplies.`);
-          triggerSarvamTTS(`Medical Emergency! Ration spoilage reported. Each survivor paid 40 credits.`, 'shubh');
+          gameState.players.forEach(p => {
+            if (!p.isBankrupt) {
+              changePlayerCapital(p, -40);
+              spendPlayerCash(p, 40);
+            }
+          });
+          logClientEvent("🦟 Ration Spoilage: All survivors paid $40 in emergency supplies.");
+          recordClientAction(player, "Ration Spoilage Outbreak", `#${player.pos}`, "Landed on Disease Outbreak sector", "All active survivors lost $40 for clean water rations", "-$40 all", "CALAMITY");
+          triggerSarvamTTS("Medical Emergency! Ration spoilage reported. Each survivor paid 40 credits.", 'shubh');
         }
       ];
       cards[Math.floor(Math.random() * cards.length)]();
@@ -1267,7 +2047,27 @@
 
     function clientPassTurn() {
       gameState.hasRolledThisTurn = false;
-      gameState.currentTurnIndex = (gameState.currentTurnIndex + 1) % 4;
+
+      // Check win condition (sole survivor remaining)
+      const activeSurvivors = gameState.players.filter(p => !p.isBankrupt);
+      if (activeSurvivors.length <= 1) {
+        const winner = activeSurvivors[0] || gameState.players[0];
+        gameState.gameOver = true;
+        gameState.winnerId = winner.id;
+        logClientEvent(`🏆 ${winner.name} IS THE LAST SURVIVOR STANDING AND WINS THE GAME!`);
+        recordClientAction(winner, "Island Conquest", `#${winner.pos}`, "All opposing survivors liquidated", "Secured 1st Place Island Hegemony", "VICTORY", "VICTORY");
+        triggerWinCelebration(winner.id);
+        triggerSarvamTTS(`Victory! ${winner.name} is the sole survivor and has conquered Castaway Capital!`, 'aditya');
+        renderUI();
+        return;
+      }
+
+      let next = (gameState.currentTurnIndex + 1) % 4;
+      while (gameState.players[next].isBankrupt) {
+        next = (next + 1) % 4;
+      }
+      gameState.currentTurnIndex = next;
+
       if (gameState.currentTurnIndex === 0) {
         gameState.round++;
         logClientEvent(`>>> === LAP #${gameState.round} COMMENCED === <<<`);
@@ -1322,9 +2122,10 @@
           ws.send(JSON.stringify({ type: "fortify", tile_id: target.id }));
         } else {
           target.state = "FORTIFIED";
-          cur.capital -= 50;
+          changePlayerCapital(cur, -50);
           spendPlayerCash(cur, 50);
           logClientEvent(`🏰 ${cur.name} FORTIFIED ${target.name}! Rent escalated to $${target.fortifiedRent}.`);
+          recordClientAction(cur, `Fortified ${target.name}`, `#${target.id}`, "Invested capital to reinforce outpost", `Upgraded to FORTIFIED status; rent increased to $${target.fortifiedRent}`, "-$50", "FORTIFY");
           renderUI();
         }
       } else {
@@ -1341,9 +2142,10 @@
           ws.send(JSON.stringify({ type: "repair", tile_id: target.id }));
         } else {
           target.state = "PRISTINE";
-          cur.capital -= 35;
+          changePlayerCapital(cur, -35);
           spendPlayerCash(cur, 35);
           logClientEvent(`🔧 ${cur.name} repaired ${target.name} to [PRISTINE] for $35!`);
+          recordClientAction(cur, `Repaired ${target.name}`, `#${target.id}`, "Funded post-calamity reconstruction", "Restored sector to PRISTINE state; rent collections resumed", "-$35", "REPAIR");
           renderUI();
         }
       } else {
@@ -1400,7 +2202,7 @@
       });
     }
 
-    // Tabs
+    // Lobby Tabs
     document.getElementById('tab-solo').addEventListener('click', () => {
       document.getElementById('view-solo').classList.remove('hidden');
       document.getElementById('view-create').classList.add('hidden');
@@ -1426,6 +2228,38 @@
       document.getElementById('tab-create').className = "flex-1 py-2 font-medium text-slate-400 hover:text-slate-200 transition";
       document.getElementById('tab-join').className = "flex-1 py-2 font-bold text-cyan-400 border-b-2 border-cyan-500 transition";
       document.getElementById('tab-solo').className = "flex-1 py-2 font-medium text-slate-400 hover:text-slate-200 transition";
+    });
+
+    // Right Drawer Tabs: Cause & Effect History vs Island Comms
+    document.getElementById('tab-cause-effect').addEventListener('click', () => {
+      document.getElementById('view-cause-effect').classList.remove('hidden');
+      document.getElementById('view-room-chat').classList.add('hidden');
+      document.getElementById('tab-cause-effect').className = "flex-1 py-1.5 font-bold text-orange-400 border-b-2 border-orange-500 transition flex items-center justify-center gap-1";
+      document.getElementById('tab-room-chat').className = "flex-1 py-1.5 font-medium text-slate-400 hover:text-slate-200 transition flex items-center justify-center gap-1";
+    });
+
+    document.getElementById('tab-room-chat').addEventListener('click', () => {
+      document.getElementById('view-room-chat').classList.remove('hidden');
+      document.getElementById('view-cause-effect').classList.add('hidden');
+      document.getElementById('tab-room-chat').className = "flex-1 py-1.5 font-bold text-cyan-400 border-b-2 border-cyan-500 transition flex items-center justify-center gap-1";
+      document.getElementById('tab-cause-effect').className = "flex-1 py-1.5 font-medium text-slate-400 hover:text-slate-200 transition flex items-center justify-center gap-1";
+    });
+
+    // Minimap Circuit Toggle Button
+    document.getElementById('btn-toggle-circuit').addEventListener('click', () => {
+      const container = document.getElementById('board-circuit-container');
+      if (container) {
+        container.classList.toggle('hidden');
+      }
+    });
+
+    // Win Modal Buttons
+    document.getElementById('btn-close-win-modal').addEventListener('click', () => {
+      document.getElementById('win-celebration-modal').classList.add('hidden');
+    });
+
+    document.getElementById('btn-play-again').addEventListener('click', () => {
+      window.location.reload();
     });
 
     // Chat
@@ -1492,9 +2326,16 @@
 
     // Camera presets
     document.getElementById('camera-select').addEventListener('change', (e) => {
-      if (e.target.value === "topdown") camera.position.set(0, 68, 0.1);
-      else if (e.target.value === "isometric") camera.position.set(0, 38, 46);
-      controls.target.set(0, 0, 0);
+      if (e.target.value === "topdown") {
+        camera.position.set(0, 68, 0.1);
+        controls.target.set(0, 0, 0);
+      } else if (e.target.value === "isometric") {
+        camera.position.set(0, 38, 46);
+        controls.target.set(0, 0, 0);
+      } else if (e.target.value === "follow") {
+        const cur = gameState.players[gameState.currentTurnIndex];
+        focusCameraOnTile(cur.pos);
+      }
     });
 
     document.getElementById('reset-cam-btn').addEventListener('click', () => {
@@ -1505,6 +2346,7 @@
     // Auto-detect room parameter from URL query (?room=XYZ)
     window.addEventListener('DOMContentLoaded', () => {
       init3D();
+      buildCircuitMinimap();
       renderUI();
       connectWebSocket();
 

@@ -144,7 +144,78 @@ Returns whether the Sarvam AI engine is active and the list of available persona
 
 ---
 
-## 🌟 Core Game Features
+## 🧭 Clear Board & Cause-and-Effect Gameplay Architecture (New!)
+
+To ensure players always know **what they are doing, where they are going, and what happened**, the board and gameplay loop feature comprehensive clarity upgrades:
+
+```mermaid
+flowchart TD
+    A["🎲 Player Turn Begins"] --> B["🧭 Mission Directive Bar<br>'STEP 1: ROLL DICE'"]
+    B --> C["Roll Dice & Animate Pawn Hop"]
+    C --> D{"Tile Type Landed?"}
+    D -- Base Camp Alpha --> E["🏕️ Collect $200 Lap Salary<br>+$200 Floating Delta"]
+    D -- Unowned Sector --> F["🏝️ Purchase Sector Option<br>Sector Claimed Receipt"]
+    D -- Opponent Sector --> G["🏠 House Call: Rent Surrendered<br>Breakdown: Rent / 5% Tax / Net"]
+    D -- Calamity / Event --> H["⚡ Calamity / Salvage Action<br>Devastation or +$150 Crate"]
+    E & F & G & H --> I["📝 Record Cause & Effect Card<br>(Actor, Movement, Cause, Effect, Financial)"]
+    I --> J["📈 Update High / Low Secured Badges<br>(Peak Capital & Lowest Dip)"]
+    J --> K["🧭 Mission Directive Bar<br>'STEP 2: FORTIFY / REPAIR / PASS'"]
+    K --> L{"Sole Survivor<br>Remaining?"}
+    L -- Yes --> M["🏆 Victory Celebration Modal<br>(Confetti, Standings & High/Low Scorecard)"]
+    L -- No --> N["Next Survivor's Turn"]
+```
+
+### 1. 🏷️ Clearly Named 3D Blocks & Elevated Billboard Sprites
+- **Surface Canvas Textures:** Every single tile among the 24 sectors features a 512×512 dynamic canvas texture displaying its Sector Category (e.g., Coastal, Jungle, Industrial), Block Number (`#0` through `#23`), bold sector name, purchase price, and rent.
+- **Floating 3D Billboard Sprites:** Positioned above each tile block, readable from any camera angle, ensuring you never have to guess which block is which.
+- **Color Coding:** 
+  - Base Camp Alpha (`#0`): Golden Beacon
+  - Finance Ministry (`#6`): Gold Imperial Crest
+  - Max Autos Transit Hub (`#12`): Cobalt Industrial Garage
+  - Calamity / Events: Crimson Warning Markers
+
+### 2. 🗺️ 24-Block Interactive Circuit Minimap
+- A dedicated interactive ribbon at the top of the board lists all 24 blocks sequentially in circuit order.
+- Features real-time player pawn location badges (Red, Blue, Green, Gold).
+- **Click-to-Focus:** Click any block on the minimap or 3D board to smoothly focus the camera directly on that sector.
+
+### 3. 🎯 Active Turn Mission Directive Bar
+- Positioned right below the header HUD, providing plain-English context for the active player:
+  - **`STEP 1: ROLL`** — Prompts the player to roll the dice to traverse the island.
+  - **`STEP 2: ACTIONS & PASS`** — Explains what occurred on the landed block and highlights optional repair/fortification actions before passing the turn.
+  - **`WAITING`** — Displays who is currently moving and where they are located.
+
+### 4. 📜 Action Cause-and-Effect History Ledger
+- Dedicated **"Action Cause & Effect"** tab in the right-hand drawer.
+- Every turn records a structured card detailing:
+  - **Actor & Action:** Who initiated the move.
+  - **Movement Path:** Exact from/to sector coordinates (e.g., `#0 ➔ #${new_pos}`).
+  - **Action Cause:** What triggered the event (e.g., landing on an unowned sector or entering another player's fortified outpost).
+  - **Resulting Effect:** Exact rule resolution (e.g., deed transfer, rent surrender, cyclone destruction).
+  - **Financial Impact:** Exact net credits earned or deducted (`+$200`, `-$45`).
+
+### 5. 🏠 House Call & Transaction Alert Receipts
+- When a survivor enters an opponent's property, an animated cinematic receipt slides onto the screen:
+  - Tenant name & Landlord name.
+  - Exact property name and upgrade status (`PRISTINE` or `FORTIFIED`).
+  - Total rent charged.
+  - 5% royal fee routed to the Minister of Finance (if active).
+  - Net profit deposited into the landlord's ledger.
+
+### 6. 💸 Money Lost/Won Animations & High/Low Capital Badges
+- **Floating Currency Particles:** Every time money changes hands, animated delta particles (`+$XX` in glowing green or `-$XX` in warning red) float upward and fade out.
+- **Wallet Flash Effects:** Player wallet cards flash with emerald gain or crimson loss borders.
+- **High / Low Secured Badges:** Every player's wallet card displays their **Peak High** capital attained and **Lowest Dip** experienced throughout the game.
+
+### 7. 🏆 Victory Celebration & Survival Scorecard
+- When opponents are liquidated, an end-game victory screen triggers:
+  - Confetti particle canvas animation.
+  - 1st to 4th Place medal standings.
+  - Total Net Worth calculation (cash on hand + property market value).
+  - High and Low capital secured throughout the match.
+  - One-click **"Play Again"** button to restart the island simulation.
+
+---
 
 - **🌐 Live Online Multiplayer:** Play with friends anywhere. Create a room, copy a 1-click link (`?room=CODE`), and pick your survivor color (Red, Blue, Green, Gold).
 - **🤖 Autonomous Heuristic AI:** Any unclaimed slot is piloted by survivor bots that balance capital, repair sectors, and upgrade strongholds.
