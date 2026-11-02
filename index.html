@@ -1,0 +1,1110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Castaway Capital: Island of Ruin - 3D Board</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Three.js & OrbitControls -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+
+  <style>
+    body { font-family: 'Plus Jakarta Sans', sans-serif; }
+    .font-mono { font-family: 'JetBrains Mono', monospace; }
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: rgba(15, 23, 42, 0.6); }
+    ::-webkit-scrollbar-thumb { background: rgba(100, 116, 139, 0.5); border-radius: 9999px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(148, 163, 184, 0.8); }
+
+    .glass-panel {
+      background: rgba(15, 23, 42, 0.78);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.5);
+    }
+    .note-badge {
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .note-badge:hover {
+      transform: translateY(-2px);
+      filter: brightness(1.15);
+    }
+    @keyframes pulse-ring {
+      0% { transform: scale(0.95); opacity: 0.8; }
+      50% { transform: scale(1.1); opacity: 0.3; }
+      100% { transform: scale(0.95); opacity: 0.8; }
+    }
+    .pulse-glow { animation: pulse-ring 2.5s infinite ease-in-out; }
+    .die-face {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 44px;
+      height: 44px;
+      border-radius: 10px;
+      background: white;
+      color: #0f172a;
+      font-size: 24px;
+      font-weight: 800;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3), inset 0 2px 4px rgba(255,255,255,0.8);
+      transform-style: preserve-3d;
+      transition: transform 0.4s ease;
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 h-screen w-screen overflow-hidden select-none">
+
+  <!-- 3D WebGL Canvas Container -->
+  <div id="canvas-container" class="absolute inset-0 z-0"></div>
+
+  <!-- UI Overlay Layout -->
+  <div class="relative z-10 h-full w-full pointer-events-none flex flex-col justify-between p-4">
+
+    <!-- Top Navigation Header -->
+    <header class="pointer-events-auto glass-panel rounded-2xl px-5 py-3 flex items-center justify-between shadow-2xl">
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-500 via-orange-500 to-red-500 flex items-center justify-center font-black text-white text-lg shadow-lg shadow-orange-500/30">
+          🏝️
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="text-base font-extrabold tracking-tight text-white flex items-center gap-2">
+              CASTAWAY CAPITAL
+              <span class="text-[11px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
+                Island of Ruin 3D
+              </span>
+            </h1>
+          </div>
+          <p class="text-xs text-slate-400">Strict 4-Player Circuit • Physical Currency Engine • Three.js WebGL</p>
+        </div>
+      </div>
+
+      <!-- Turn & Lap Centerpiece -->
+      <div class="flex items-center gap-4 bg-slate-900/80 px-4 py-2 rounded-xl border border-slate-800">
+        <div class="text-right">
+          <div class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Current Turn</div>
+          <div id="active-player-banner" class="text-sm font-extrabold text-red-400 flex items-center gap-1.5 justify-end">
+            <span class="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse"></span>
+            <span id="active-player-name">Player 1 (Red)</span>
+          </div>
+        </div>
+        <div class="h-8 w-px bg-slate-800"></div>
+        <div>
+          <div class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Lap Circuit</div>
+          <div id="lap-counter" class="text-sm font-extrabold text-amber-400 font-mono">Lap #1</div>
+        </div>
+      </div>
+
+      <!-- Control Toggles -->
+      <div class="flex items-center space-x-2">
+        <!-- Camera View Presets -->
+        <select id="camera-select" class="bg-slate-900 text-xs font-medium text-slate-300 border border-slate-700/80 rounded-xl px-3 py-2 outline-none cursor-pointer hover:border-slate-500 transition">
+          <option value="isometric">📐 Isometric 3D</option>
+          <option value="topdown">🗺️ Top-Down Map</option>
+          <option value="follow">🎯 Follow Active Pawn</option>
+        </select>
+
+        <!-- Engine Mode Button -->
+        <button id="sync-btn" class="px-3.5 py-2 rounded-xl text-xs font-semibold bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/40 flex items-center gap-1.5 transition">
+          <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+          <span id="sync-label">Sync JSON</span>
+        </button>
+
+        <!-- Reset Camera -->
+        <button id="reset-cam-btn" title="Reset View" class="p-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-700/80 transition">
+          <i data-lucide="compass" class="w-4 h-4"></i>
+        </button>
+      </div>
+    </header>
+
+    <!-- Center Workspace: Left Wallets & Right Inspector -->
+    <div class="flex-1 flex justify-between items-start gap-4 my-3 overflow-hidden">
+
+      <!-- LEFT SIDEBAR: 4-Player Physical Currency Wallets -->
+      <aside class="pointer-events-auto glass-panel rounded-2xl w-80 max-h-full flex flex-col p-3.5 overflow-hidden shadow-2xl">
+        <div class="flex items-center justify-between pb-2 mb-2 border-b border-slate-800/80">
+          <h2 class="text-xs font-extrabold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
+            <i data-lucide="wallet" class="w-4 h-4 text-emerald-400"></i>
+            Physical Note Wallets
+          </h2>
+          <span class="text-[10px] text-slate-500 font-mono">7 Denominations</span>
+        </div>
+
+        <div id="player-wallets-list" class="space-y-2.5 overflow-y-auto pr-1">
+          <!-- Dynamic Player Wallets populated by JS -->
+        </div>
+
+        <div class="mt-3 pt-2.5 border-t border-slate-800/80 text-[10px] text-slate-400 flex items-center justify-between">
+          <span>Base Camp Salary: +$200 / Lap</span>
+          <span class="text-emerald-400 font-medium">Automatic Change</span>
+        </div>
+      </aside>
+
+      <!-- RIGHT SIDEBAR: Tile Inspector & Island Event Ticker -->
+      <aside class="pointer-events-auto glass-panel rounded-2xl w-80 max-h-full flex flex-col p-3.5 overflow-hidden shadow-2xl">
+        <!-- Tile Inspector Dossier -->
+        <div class="pb-3 border-b border-slate-800/80">
+          <div class="flex items-center justify-between mb-1.5">
+            <span class="text-[10px] font-bold uppercase tracking-wider text-cyan-400 flex items-center gap-1">
+              <i data-lucide="map-pin" class="w-3 h-3"></i> 3D Sector Dossier
+            </span>
+            <span id="inspect-tag" class="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">Click any tile</span>
+          </div>
+          <h3 id="inspect-title" class="text-sm font-bold text-white truncate">Select a Sector on Island</h3>
+          <p id="inspect-desc" class="text-xs text-slate-400 mt-0.5">Click any 3D tile on the board to view owner, rent values, and fortification status.</p>
+
+          <div id="inspect-stats" class="grid grid-cols-2 gap-2 mt-3 text-xs hidden">
+            <div class="bg-slate-900/80 p-2 rounded-lg border border-slate-800">
+              <div class="text-[10px] text-slate-500 uppercase">Current Rent</div>
+              <div id="inspect-rent" class="text-emerald-400 font-bold font-mono">$0</div>
+            </div>
+            <div class="bg-slate-900/80 p-2 rounded-lg border border-slate-800">
+              <div class="text-[10px] text-slate-500 uppercase">Sector Status</div>
+              <div id="inspect-status" class="font-bold text-slate-200">PRISTINE</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Live Events Log -->
+        <div class="flex-1 flex flex-col min-h-0 mt-3">
+          <div class="flex items-center justify-between mb-1.5">
+            <h4 class="text-[11px] font-extrabold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
+              <i data-lucide="activity" class="w-3.5 h-3.5 text-amber-400"></i> Island Chronicle
+            </h4>
+            <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+          </div>
+          <div id="events-log" class="flex-1 overflow-y-auto space-y-1.5 text-xs text-slate-300 font-mono pr-1">
+            <div class="p-2 rounded bg-slate-900/60 border border-slate-800/80 text-[11px] text-slate-400">
+              • Initializing 3D engine and 24 circular sectors...
+            </div>
+          </div>
+        </div>
+      </aside>
+
+    </div>
+
+    <!-- Bottom Action Console & Dice Controller -->
+    <footer class="pointer-events-auto glass-panel rounded-2xl p-3.5 flex items-center justify-between shadow-2xl">
+      <!-- Left: Dice Roll Arena -->
+      <div class="flex items-center space-x-4">
+        <div class="flex items-center gap-2">
+          <div id="die-1" class="die-face">⚂</div>
+          <div id="die-2" class="die-face">⚄</div>
+        </div>
+        <div>
+          <div class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Dice Output</div>
+          <div id="dice-result-label" class="text-sm font-extrabold text-white font-mono">Roll: 8 (3 + 5)</div>
+        </div>
+        <div id="sabotage-badge" class="hidden text-xs px-2.5 py-1 rounded-lg bg-red-500/20 text-red-300 border border-red-500/40 font-bold flex items-center gap-1">
+          <i data-lucide="alert-triangle" class="w-3.5 h-3.5"></i> 1d6 SABOTAGE ACTIVE
+        </div>
+      </div>
+
+      <!-- Center: Action Buttons -->
+      <div class="flex items-center space-x-2">
+        <button id="roll-btn" class="px-6 py-2.5 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-bold text-sm shadow-lg shadow-orange-500/25 flex items-center gap-2 transition active:scale-95">
+          <i data-lucide="dices" class="w-4 h-4"></i>
+          <span>ROLL DICE</span>
+        </button>
+
+        <button id="fortify-btn" class="px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-cyan-300 border border-cyan-500/30 text-xs font-bold flex items-center gap-1.5 transition">
+          <i data-lucide="shield" class="w-3.5 h-3.5"></i>
+          <span>Fortify</span>
+        </button>
+
+        <button id="repair-btn" class="px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-amber-300 border border-amber-500/30 text-xs font-bold flex items-center gap-1.5 transition">
+          <i data-lucide="wrench" class="w-3.5 h-3.5"></i>
+          <span>Repair</span>
+        </button>
+
+        <button id="loan-btn" class="px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-purple-300 border border-purple-500/30 text-xs font-bold flex items-center gap-1.5 transition">
+          <i data-lucide="landmark" class="w-3.5 h-3.5"></i>
+          <span>Asset Loan</span>
+        </button>
+
+        <button id="trade-btn" class="px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-emerald-300 border border-emerald-500/30 text-xs font-bold flex items-center gap-1.5 transition">
+          <i data-lucide="repeat" class="w-3.5 h-3.5"></i>
+          <span>Trade</span>
+        </button>
+
+        <button id="end-turn-btn" class="px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold flex items-center gap-1.5 transition">
+          <i data-lucide="arrow-right-circle" class="w-4 h-4"></i>
+          <span>Pass Turn</span>
+        </button>
+      </div>
+
+      <!-- Right: View Controls / Help -->
+      <div class="flex items-center space-x-2 text-xs text-slate-400 font-mono">
+        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-800">
+          <i data-lucide="mouse-pointer-click" class="w-3 h-3 text-cyan-400"></i> Left Click: Orbit
+        </span>
+        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-800">
+          Right Click: Pan
+        </span>
+      </div>
+    </footer>
+
+  </div>
+
+  <!-- Main Game Simulation & Three.js 3D Engine Script -->
+  <script>
+    // =========================================================================
+    // 1. DATA STATE & GAME ARCHITECTURE
+    // =========================================================================
+    const TILE_DATA = [
+      { id: 0, name: "Base Camp Alpha", sector: "Special", type: "BASE_CAMP", cost: 0, rent: 200, color: 0x06b6d4 },
+      { id: 1, name: "Shipwreck Cove", sector: "Coastal", type: "PROPERTY", cost: 100, rent: 15, fortifiedRent: 45, color: 0x06b6d4 },
+      { id: 2, name: "Tide Pool Mystery", sector: "Wilderness", type: "EVENT", cost: 0, rent: 0, color: 0xef4444 },
+      { id: 3, name: "Flotsam Reef", sector: "Coastal", type: "PROPERTY", cost: 120, rent: 20, fortifiedRent: 55, color: 0x06b6d4 },
+      { id: 4, name: "Max Autos: Coastal", sector: "Transit", type: "UTILITY", cost: 150, rent: 40, color: 0x3b82f6 },
+      { id: 5, name: "Bamboo Thicket", sector: "Jungle", type: "PROPERTY", cost: 130, rent: 22, fortifiedRent: 65, color: 0x10b981 },
+      { id: 6, name: "Ministry of Finance", sector: "Government", type: "LICENSE", cost: 250, rent: 0, color: 0xeab308 },
+      { id: 7, name: "Canopy Heights", sector: "Jungle", type: "PROPERTY", cost: 150, rent: 28, fortifiedRent: 80, color: 0x10b981 },
+      { id: 8, name: "Monsoon Surge", sector: "Wilderness", type: "EVENT", cost: 0, rent: 0, color: 0xef4444 },
+      { id: 9, name: "Jaguar Den", sector: "Jungle", type: "PROPERTY", cost: 170, rent: 32, fortifiedRent: 95, color: 0x10b981 },
+      { id: 10, name: "Max Autos: Jungle", sector: "Transit", type: "UTILITY", cost: 180, rent: 50, color: 0x3b82f6 },
+      { id: 11, name: "Sulfur Springs", sector: "Geothermal", type: "PROPERTY", cost: 190, rent: 35, fortifiedRent: 105, color: 0xf97316 },
+      { id: 12, name: "Outpost Bravo", sector: "Special", type: "BASE_CAMP", cost: 0, rent: 100, color: 0x06b6d4 },
+      { id: 13, name: "Obsidian Ridge", sector: "Geothermal", type: "PROPERTY", cost: 210, rent: 40, fortifiedRent: 120, color: 0xf97316 },
+      { id: 14, name: "Volcanic Tremor", sector: "Wilderness", type: "EVENT", cost: 0, rent: 0, color: 0xef4444 },
+      { id: 15, name: "Lava Cascades", sector: "Geothermal", type: "PROPERTY", cost: 230, rent: 45, fortifiedRent: 135, color: 0xf97316 },
+      { id: 16, name: "Max Autos: Magma", sector: "Transit", type: "UTILITY", cost: 200, rent: 60, color: 0x3b82f6 },
+      { id: 17, name: "Ruins of Eldoria", sector: "Ancient", type: "PROPERTY", cost: 260, rent: 55, fortifiedRent: 160, color: 0xa855f7 },
+      { id: 18, name: "Treasury Vault", sector: "Government", type: "LICENSE", cost: 250, rent: 0, color: 0xeab308 },
+      { id: 19, name: "Sunken Citadel", sector: "Ancient", type: "PROPERTY", cost: 280, rent: 65, fortifiedRent: 185, color: 0xa855f7 },
+      { id: 20, name: "Hurricane Cataclysm", sector: "Wilderness", type: "EVENT", cost: 0, rent: 0, color: 0xef4444 },
+      { id: 21, name: "Temple of Ruin King", sector: "Ancient", type: "PROPERTY", cost: 320, rent: 75, fortifiedRent: 220, color: 0xa855f7 },
+      { id: 22, name: "Max Autos: Monorail", sector: "Transit", type: "UTILITY", cost: 220, rent: 70, color: 0x3b82f6 },
+      { id: 23, name: "Smuggler's Rift", sector: "Wilderness", type: "EVENT", cost: 0, rent: 0, color: 0xef4444 }
+    ];
+
+    const gameState = {
+      round: 1,
+      currentTurnIndex: 0,
+      financeManagerId: -1,
+      gameOver: false,
+      players: [
+        { id: 0, name: "Player 1", color: "Red", hex: "#EF4444", threeColor: 0xef4444, pos: 0, capital: 1500, isBot: false, isBankrupt: false, hasFinance: false, tamper: 0, notes: {500:2, 100:2, 50:2, 20:6, 10:5, 5:5, 1:5}, properties: [] },
+        { id: 1, name: "Navigator", color: "Blue", hex: "#3B82F6", threeColor: 0x3b82f6, pos: 0, capital: 1500, isBot: true, isBankrupt: false, hasFinance: false, tamper: 0, notes: {500:2, 100:2, 50:2, 20:6, 10:5, 5:5, 1:5}, properties: [] },
+        { id: 2, name: "Engineer", color: "Green", hex: "#10B981", threeColor: 0x10b981, pos: 0, capital: 1500, isBot: true, isBankrupt: false, hasFinance: false, tamper: 0, notes: {500:2, 100:2, 50:2, 20:6, 10:5, 5:5, 1:5}, properties: [] },
+        { id: 3, name: "Scavenger", color: "Gold", hex: "#F59E0B", threeColor: 0xf59e0b, pos: 0, capital: 1500, isBot: true, isBankrupt: false, hasFinance: false, tamper: 0, notes: {500:2, 100:2, 50:2, 20:6, 10:5, 5:5, 1:5}, properties: [] }
+      ],
+      tiles: TILE_DATA.map(t => ({ ...t, ownerId: -1, state: "PRISTINE", isMortgaged: false })),
+      recentEvents: ["Welcome to Castaway Capital: Island of Ruin! All 4 survivors landed at Base Camp Alpha."]
+    };
+
+    // Note colors for UI
+    const NOTE_CONFIG = {
+      500: { name: "Purple", bg: "bg-purple-600/30 text-purple-300 border-purple-500/40" },
+      100: { name: "Teal", bg: "bg-teal-500/30 text-teal-300 border-teal-500/40" },
+      50:  { name: "Orange", bg: "bg-orange-500/30 text-orange-300 border-orange-500/40" },
+      20:  { name: "Green", bg: "bg-emerald-600/30 text-emerald-300 border-emerald-500/40" },
+      10:  { name: "Yellow", bg: "bg-yellow-500/30 text-yellow-300 border-yellow-500/40" },
+      5:   { name: "Pink", bg: "bg-pink-500/30 text-pink-300 border-pink-500/40" },
+      1:   { name: "White", bg: "bg-slate-200/20 text-slate-200 border-slate-400/40" }
+    };
+
+    // =========================================================================
+    // 2. THREE.JS 3D SCENE & BOARD PROCEDURAL GENERATION
+    // =========================================================================
+    let scene, camera, renderer, controls;
+    const tileMeshes = [];
+    const playerPawnMeshes = [];
+    const structureMeshes = {}; // tileId -> mesh
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
+    let selectedTileId = null;
+
+    // Board geometry layout parameters
+    const BOARD_RADIUS_X = 28;
+    const BOARD_RADIUS_Z = 28;
+
+    function getTileCoordinates(index) {
+      // 24 tiles arranged in rounded perimeter circuit
+      const angle = (index / 24) * Math.PI * 2 - Math.PI / 2;
+      const x = Math.cos(angle) * BOARD_RADIUS_X;
+      const z = Math.sin(angle) * BOARD_RADIUS_Z;
+      return { x, y: 0.5, z, angle };
+    }
+
+    function init3D() {
+      const container = document.getElementById('canvas-container');
+      const width = container.clientWidth;
+      const height = container.clientHeight;
+
+      scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x060d17);
+      scene.fog = new THREE.FogExp2(0x060d17, 0.012);
+
+      camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000);
+      camera.position.set(0, 38, 46);
+
+      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: "high-performance" });
+      renderer.setSize(width, height);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      container.appendChild(renderer.domElement);
+
+      controls = new THREE.OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.05;
+      controls.maxPolarAngle = Math.PI / 2 - 0.05;
+      controls.minDistance = 15;
+      controls.maxDistance = 85;
+      controls.target.set(0, 0, 0);
+
+      // Lighting
+      const ambientLight = new THREE.AmbientLight(0x38bdf8, 0.45);
+      scene.add(ambientLight);
+
+      const sunLight = new THREE.DirectionalLight(0xffedd5, 1.3);
+      sunLight.position.set(30, 50, 20);
+      sunLight.castShadow = true;
+      sunLight.shadow.mapSize.width = 2048;
+      sunLight.shadow.mapSize.height = 2048;
+      sunLight.shadow.bias = -0.0005;
+      scene.add(sunLight);
+
+      // Volcanic caldera point glow
+      const volcanoGlow = new THREE.PointLight(0xff3b00, 2.5, 30);
+      volcanoGlow.position.set(0, 6, 0);
+      scene.add(volcanoGlow);
+
+      // Procedural Ocean
+      const oceanGeo = new THREE.PlaneGeometry(300, 300, 64, 64);
+      const oceanMat = new THREE.MeshStandardMaterial({
+        color: 0x092635,
+        roughness: 0.1,
+        metalness: 0.8
+      });
+      const ocean = new THREE.Mesh(oceanGeo, oceanMat);
+      ocean.rotation.x = -Math.PI / 2;
+      ocean.position.y = -0.2;
+      ocean.receiveShadow = true;
+      scene.add(ocean);
+
+      // Central Island Terrain
+      buildCentralIsland();
+
+      // Build 24 Board Tiles
+      buildBoardTiles();
+
+      // Build 4 Player Pawns
+      buildPlayerPawns();
+
+      // Raycasting for click-to-inspect
+      window.addEventListener('resize', onWindowResize);
+      renderer.domElement.addEventListener('click', onTileClick);
+
+      animate();
+    }
+
+    function buildCentralIsland() {
+      const islandGroup = new THREE.Group();
+
+      // Sand shoreline base
+      const beachGeo = new THREE.CylinderGeometry(20, 23, 1.2, 32);
+      const beachMat = new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.9 });
+      const beach = new THREE.Mesh(beachGeo, beachMat);
+      beach.position.y = 0.4;
+      beach.receiveShadow = true;
+      islandGroup.add(beach);
+
+      // Jungle canopy layer
+      const jungleGeo = new THREE.CylinderGeometry(15, 18, 2, 28);
+      const jungleMat = new THREE.MeshStandardMaterial({ color: 0x065f46, roughness: 0.85 });
+      const jungle = new THREE.Mesh(jungleGeo, jungleMat);
+      jungle.position.y = 1.6;
+      jungle.castShadow = true;
+      jungle.receiveShadow = true;
+      islandGroup.add(jungle);
+
+      // Central Volcano mountain
+      const volcanoGeo = new THREE.ConeGeometry(9, 7.5, 24, 1, true);
+      const volcanoMat = new THREE.MeshStandardMaterial({ color: 0x1f2937, roughness: 0.95, flatShading: true });
+      const volcano = new THREE.Mesh(volcanoGeo, volcanoMat);
+      volcano.position.y = 5.2;
+      volcano.castShadow = true;
+      islandGroup.add(volcano);
+
+      // Molten Caldera core
+      const calderaGeo = new THREE.CircleGeometry(3, 16);
+      const calderaMat = new THREE.MeshBasicMaterial({ color: 0xff4500 });
+      const caldera = new THREE.Mesh(calderaGeo, calderaMat);
+      caldera.rotation.x = -Math.PI / 2;
+      caldera.position.y = 7.5;
+      islandGroup.add(caldera);
+
+      // Palm Trees scattered on jungle terrace
+      for (let i = 0; i < 14; ++i) {
+        const pAngle = (i / 14) * Math.PI * 2 + (Math.random() * 0.3);
+        const pDist = 10 + Math.random() * 5;
+        const px = Math.cos(pAngle) * pDist;
+        const pz = Math.sin(pAngle) * pDist;
+
+        const palm = createPalmTree();
+        palm.position.set(px, 2.5, pz);
+        palm.rotation.y = Math.random() * Math.PI;
+        islandGroup.add(palm);
+      }
+
+      scene.add(islandGroup);
+    }
+
+    function createPalmTree() {
+      const tree = new THREE.Group();
+      // Curved trunk
+      const trunkGeo = new THREE.CylinderGeometry(0.12, 0.22, 2.8, 6);
+      const trunkMat = new THREE.MeshStandardMaterial({ color: 0x78350f, roughness: 0.9 });
+      const trunk = new THREE.Mesh(trunkGeo, trunkMat);
+      trunk.position.y = 1.4;
+      trunk.rotation.z = (Math.random() - 0.5) * 0.25;
+      trunk.castShadow = true;
+      tree.add(trunk);
+
+      // Foliage fronds
+      const crownGeo = new THREE.ConeGeometry(1.6, 1.2, 7);
+      const crownMat = new THREE.MeshStandardMaterial({ color: 0x15803d, roughness: 0.7 });
+      const crown = new THREE.Mesh(crownGeo, crownMat);
+      crown.position.y = 2.8;
+      crown.castShadow = true;
+      tree.add(crown);
+
+      return tree;
+    }
+
+    function buildBoardTiles() {
+      const tileWidth = 5.6;
+      const tileLength = 5.6;
+      const tileHeight = 0.9;
+
+      TILE_DATA.forEach((tile, idx) => {
+        const coords = getTileCoordinates(idx);
+        const group = new THREE.Group();
+        group.position.set(coords.x, coords.y, coords.z);
+        group.rotation.y = -coords.angle;
+
+        // Base tile slab (dark slate chassis)
+        const slabGeo = new THREE.BoxGeometry(tileWidth, tileHeight, tileLength);
+        const slabMat = new THREE.MeshStandardMaterial({
+          color: 0x0f172a,
+          roughness: 0.4,
+          metalness: 0.2
+        });
+        const slab = new THREE.Mesh(slabGeo, slabMat);
+        slab.receiveShadow = true;
+        slab.castShadow = true;
+        group.add(slab);
+
+        // Top colored indicator face
+        const topGeo = new THREE.BoxGeometry(tileWidth * 0.92, 0.1, tileLength * 0.92);
+        const topMat = new THREE.MeshStandardMaterial({
+          color: tile.color,
+          roughness: 0.3,
+          metalness: 0.1
+        });
+        const topFace = new THREE.Mesh(topGeo, topMat);
+        topFace.position.y = tileHeight / 2 + 0.05;
+        topFace.receiveShadow = true;
+        group.add(topFace);
+
+        // Custom Architectural Markers
+        if (tile.type === "BASE_CAMP") {
+          // Glowing Beacon
+          const beaconGeo = new THREE.CylinderGeometry(0.5, 0.7, 2.2, 8);
+          const beaconMat = new THREE.MeshStandardMaterial({ color: 0x06b6d4, emissive: 0x06b6d4, emissiveIntensity: 0.6 });
+          const beacon = new THREE.Mesh(beaconGeo, beaconMat);
+          beacon.position.y = 1.6;
+          group.add(beacon);
+        } else if (tile.type === "LICENSE") {
+          // Golden Ministry Pillar
+          const pillarGeo = new THREE.CylinderGeometry(0.4, 0.5, 1.8, 12);
+          const pillarMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, metalness: 0.8, roughness: 0.2 });
+          const pillar = new THREE.Mesh(pillarGeo, pillarMat);
+          pillar.position.y = 1.4;
+          group.add(pillar);
+        } else if (tile.type === "UTILITY") {
+          // Blue Transit Depot
+          const depotGeo = new THREE.BoxGeometry(1.6, 1.2, 1.6);
+          const depotMat = new THREE.MeshStandardMaterial({ color: 0x2563eb, metalness: 0.5, roughness: 0.3 });
+          const depot = new THREE.Mesh(depotGeo, depotMat);
+          depot.position.y = 1.1;
+          group.add(depot);
+        }
+
+        group.userData = { tileId: idx, rawData: tile };
+        scene.add(group);
+        tileMeshes.push(group);
+      });
+    }
+
+    function buildPlayerPawns() {
+      gameState.players.forEach((player, pIdx) => {
+        const pawn = new THREE.Group();
+
+        // Flared Base
+        const baseGeo = new THREE.CylinderGeometry(0.65, 0.9, 0.5, 16);
+        const pawnMat = new THREE.MeshStandardMaterial({
+          color: player.threeColor,
+          roughness: 0.2,
+          metalness: 0.4
+        });
+        const base = new THREE.Mesh(baseGeo, pawnMat);
+        base.position.y = 0.25;
+        base.castShadow = true;
+        pawn.add(base);
+
+        // Body stem
+        const bodyGeo = new THREE.ConeGeometry(0.5, 1.4, 16);
+        const body = new THREE.Mesh(bodyGeo, pawnMat);
+        body.position.y = 1.1;
+        body.castShadow = true;
+        pawn.add(body);
+
+        // Pawn Head sphere
+        const headGeo = new THREE.SphereGeometry(0.5, 16, 16);
+        const head = new THREE.Mesh(headGeo, pawnMat);
+        head.position.y = 2.0;
+        head.castShadow = true;
+        pawn.add(head);
+
+        // Glowing position ring
+        const ringGeo = new THREE.RingGeometry(0.7, 0.85, 24);
+        const ringMat = new THREE.MeshBasicMaterial({ color: player.threeColor, side: THREE.DoubleSide });
+        const ring = new THREE.Mesh(ringGeo, ringMat);
+        ring.rotation.x = -Math.PI / 2;
+        ring.position.y = 0.05;
+        pawn.add(ring);
+
+        // Initial placement with offset per player so they don't overlap completely
+        const coords = getTileCoordinates(player.pos);
+        const offset = getPawnOffset(pIdx);
+        pawn.position.set(coords.x + offset.x, coords.y + 0.5, coords.z + offset.z);
+
+        scene.add(pawn);
+        playerPawnMeshes.push(pawn);
+      });
+    }
+
+    function getPawnOffset(playerIndex) {
+      const offsets = [
+        { x: -1.2, z: -1.2 },
+        { x:  1.2, z: -1.2 },
+        { x: -1.2, z:  1.2 },
+        { x:  1.2, z:  1.2 }
+      ];
+      return offsets[playerIndex % 4];
+    }
+
+    function animatePawnHop(playerIndex, targetTileIndex) {
+      const pawn = playerPawnMeshes[playerIndex];
+      const startPos = pawn.position.clone();
+      const coords = getTileCoordinates(targetTileIndex);
+      const offset = getPawnOffset(playerIndex);
+      const endPos = new THREE.Vector3(coords.x + offset.x, coords.y + 0.5, coords.z + offset.z);
+
+      const duration = 500; // ms
+      const startTime = performance.now();
+      const hopHeight = 3.5;
+
+      function updateHop(now) {
+        const elapsed = now - startTime;
+        const progress = Math.min(elapsed / duration, 1.0);
+
+        // Parabolic arc for vertical hop
+        const currentY = THREE.MathUtils.lerp(startPos.y, endPos.y, progress) + Math.sin(progress * Math.PI) * hopHeight;
+        pawn.position.x = THREE.MathUtils.lerp(startPos.x, endPos.x, progress);
+        pawn.position.z = THREE.MathUtils.lerp(startPos.z, endPos.z, progress);
+        pawn.position.y = currentY;
+
+        if (progress < 1.0) {
+          requestAnimationFrame(updateHop);
+        } else {
+          pawn.position.copy(endPos);
+        }
+      }
+      requestAnimationFrame(updateHop);
+    }
+
+    function updateFortificationStructures() {
+      gameState.tiles.forEach(tile => {
+        if (tile.type !== "PROPERTY") return;
+
+        const tileMesh = tileMeshes[tile.id];
+        if (!tileMesh) return;
+
+        // Clean existing custom structure if any
+        if (structureMeshes[tile.id]) {
+          tileMesh.remove(structureMeshes[tile.id]);
+          delete structureMeshes[tile.id];
+        }
+
+        if (tile.state === "FORTIFIED") {
+          // Add 3D Fortress Shelter
+          const fortGroup = new THREE.Group();
+          const fortGeo = new THREE.BoxGeometry(1.6, 1.4, 1.6);
+          const fortMat = new THREE.MeshStandardMaterial({ color: 0x38bdf8, metalness: 0.4, roughness: 0.3 });
+          const fort = new THREE.Mesh(fortGeo, fortMat);
+          fort.position.y = 1.2;
+          fort.castShadow = true;
+          fortGroup.add(fort);
+
+          // Roof pyramid
+          const roofGeo = new THREE.ConeGeometry(1.3, 0.9, 4);
+          const roofMat = new THREE.MeshStandardMaterial({ color: 0x0284c7 });
+          const roof = new THREE.Mesh(roofGeo, roofMat);
+          roof.position.y = 2.2;
+          roof.rotation.y = Math.PI / 4;
+          fortGroup.add(roof);
+
+          tileMesh.add(fortGroup);
+          structureMeshes[tile.id] = fortGroup;
+        } else if (tile.state === "RUINED") {
+          // Add 3D Ruined Rubble
+          const ruinGroup = new THREE.Group();
+          const rubbleGeo = new THREE.DodecahedronGeometry(0.65, 0);
+          const rubbleMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.95 });
+          const rubble1 = new THREE.Mesh(rubbleGeo, rubbleMat);
+          rubble1.position.set(-0.4, 0.7, 0.3);
+          const rubble2 = new THREE.Mesh(rubbleGeo, rubbleMat);
+          rubble2.position.set(0.5, 0.6, -0.2);
+          ruinGroup.add(rubble1);
+          ruinGroup.add(rubble2);
+
+          tileMesh.add(ruinGroup);
+          structureMeshes[tile.id] = ruinGroup;
+        }
+      });
+    }
+
+    function onTileClick(event) {
+      const rect = renderer.domElement.getBoundingClientRect();
+      mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+      mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+      raycaster.setFromCamera(mouse, camera);
+      const intersects = raycaster.intersectObjects(scene.children, true);
+
+      for (let hit of intersects) {
+        let cur = hit.object;
+        while (cur && cur.parent && !cur.userData?.tileId && cur.userData?.tileId !== 0) {
+          cur = cur.parent;
+        }
+        if (cur && cur.userData && cur.userData.tileId !== undefined) {
+          inspectTile(cur.userData.tileId);
+          break;
+        }
+      }
+    }
+
+    function inspectTile(tileId) {
+      selectedTileId = tileId;
+      const tile = gameState.tiles[tileId];
+      if (!tile) return;
+
+      document.getElementById('inspect-title').textContent = `#${tile.id} ${tile.name}`;
+      document.getElementById('inspect-tag').textContent = `${tile.sector} Sector`;
+      document.getElementById('inspect-desc').textContent = 
+        tile.type === "PROPERTY" ? `Cost: $${tile.cost} | Base: $${tile.rent} | Fortified: $${tile.fortifiedRent}` :
+        tile.type === "UTILITY" ? `Transit Route: Fixed Toll $${tile.rent}` :
+        tile.type === "BASE_CAMP" ? "Base Camp: Collect structured $200 salary per lap" :
+        tile.type === "LICENSE" ? "Ministry of Finance: Acquire 5% royalty on all rents and loans" :
+        "Island Calamity Risk Sector";
+
+      document.getElementById('inspect-stats').classList.remove('hidden');
+      document.getElementById('inspect-rent').textContent = `$${tile.state === 'FORTIFIED' ? tile.fortifiedRent : tile.rent}`;
+      document.getElementById('inspect-status').textContent = tile.state;
+      document.getElementById('inspect-status').className = 
+        tile.state === 'FORTIFIED' ? 'font-bold text-cyan-400' :
+        tile.state === 'RUINED' ? 'font-bold text-red-400' : 'font-bold text-emerald-400';
+    }
+
+    function onWindowResize() {
+      const container = document.getElementById('canvas-container');
+      const width = container.clientWidth;
+      const height = container.clientHeight;
+      camera.aspect = width / height;
+      camera.updateProjectionMatrix();
+      renderer.setSize(width, height);
+    }
+
+    function animate() {
+      requestAnimationFrame(animate);
+      controls.update();
+      renderer.render(scene, camera);
+    }
+
+    // =========================================================================
+    // 3. UI RENDERING & CURRENCY WALLETS
+    // =========================================================================
+    function renderUI() {
+      // Active Player Banner
+      const curPlayer = gameState.players[gameState.currentTurnIndex];
+      document.getElementById('active-player-name').textContent = `${curPlayer.name} (${curPlayer.color})`;
+      document.getElementById('active-player-banner').style.color = curPlayer.hex;
+      document.getElementById('lap-counter').textContent = `Lap #${gameState.round}`;
+
+      // Render Player Wallets with physical notes
+      const walletContainer = document.getElementById('player-wallets-list');
+      walletContainer.innerHTML = '';
+
+      gameState.players.forEach(p => {
+        const isActive = p.id === gameState.currentTurnIndex;
+        const isMinister = p.id === gameState.financeManagerId;
+
+        const card = document.createElement('div');
+        card.className = `p-2.5 rounded-xl border transition-all ${
+          isActive 
+            ? 'bg-slate-900 border-orange-500/80 shadow-lg shadow-orange-500/10' 
+            : 'bg-slate-900/60 border-slate-800'
+        } ${p.isBankrupt ? 'opacity-40 grayscale' : ''}`;
+
+        let notesHtml = '';
+        [500, 100, 50, 20, 10, 5, 1].forEach(denom => {
+          const count = p.notes[denom] || 0;
+          const conf = NOTE_CONFIG[denom];
+          notesHtml += `
+            <span class="note-badge px-1.5 py-0.5 rounded text-[10px] font-mono border ${conf.bg} font-bold inline-flex items-center">
+              $${denom}×${count}
+            </span>
+          `;
+        });
+
+        card.innerHTML = `
+          <div class="flex items-center justify-between mb-1.5">
+            <div class="flex items-center gap-2">
+              <span class="w-3 h-3 rounded-full" style="background-color: ${p.hex}"></span>
+              <span class="text-xs font-bold text-white">${p.name} ${p.isBot ? '<span class="text-[9px] text-slate-400">[BOT]</span>' : ''}</span>
+              ${isMinister ? '<span class="text-[9px] px-1 py-0.2 rounded bg-amber-500/20 text-amber-300 font-bold border border-amber-500/40">MINISTER</span>' : ''}
+            </div>
+            <div class="text-xs font-extrabold font-mono text-emerald-400">$${p.capital}</div>
+          </div>
+          <div class="flex flex-wrap gap-1 mt-1">
+            ${notesHtml}
+          </div>
+          <div class="text-[10px] text-slate-400 mt-1 flex justify-between">
+            <span>Tile #${p.pos} (${TILE_DATA[p.pos].name})</span>
+            <span>${p.properties.length} Sectors</span>
+          </div>
+        `;
+        walletContainer.appendChild(card);
+      });
+
+      // Render Recent Events
+      const eventsContainer = document.getElementById('events-log');
+      eventsContainer.innerHTML = '';
+      gameState.recentEvents.slice(-6).reverse().forEach(ev => {
+        const item = document.createElement('div');
+        item.className = "p-2 rounded bg-slate-900/70 border border-slate-800 text-[11px] leading-relaxed";
+        item.textContent = ev;
+        eventsContainer.appendChild(item);
+      });
+
+      updateFortificationStructures();
+      lucide.createIcons();
+    }
+
+    function logEvent(msg) {
+      gameState.recentEvents.push(msg);
+      if (gameState.recentEvents.length > 25) gameState.recentEvents.shift();
+      renderUI();
+    }
+
+    // =========================================================================
+    // 4. CLIENT GAME SIMULATION CONTROLLER (PLAY DIRECTLY IN 3D)
+    // =========================================================================
+    function rollDiceAction() {
+      if (gameState.gameOver) return;
+
+      const curPlayer = gameState.players[gameState.currentTurnIndex];
+      const d1 = Math.floor(Math.random() * 6) + 1;
+      const d2 = Math.floor(Math.random() * 6) + 1;
+      const totalSteps = d1 + d2;
+
+      // Update Die Faces UI
+      const diceUnicode = ["", "⚀", "⚁", "⚂", "⚃", "⚄", "⚅"];
+      document.getElementById('die-1').textContent = diceUnicode[d1];
+      document.getElementById('die-2').textContent = diceUnicode[d2];
+      document.getElementById('dice-result-label').textContent = `Roll: ${totalSteps} (${d1} + ${d2})`;
+
+      const oldPos = curPlayer.pos;
+      curPlayer.pos = (curPlayer.pos + totalSteps) % 24;
+
+      // Animate 3D Hop
+      animatePawnHop(curPlayer.id, curPlayer.pos);
+
+      // Check Lap Pass (Base Camp Salary)
+      if (curPlayer.pos < oldPos) {
+        curPlayer.capital += 200;
+        // Structured Salary Note Addition: 1x100, 1x50, 2x20, 1x10
+        curPlayer.notes[100] = (curPlayer.notes[100] || 0) + 1;
+        curPlayer.notes[50]  = (curPlayer.notes[50]  || 0) + 1;
+        curPlayer.notes[20]  = (curPlayer.notes[20]  || 0) + 2;
+        curPlayer.notes[10]  = (curPlayer.notes[10]  || 0) + 1;
+
+        logEvent(`🏕️ ${curPlayer.name} completed a lap and collected $200 Salary notes (1x 100, 1x 50, 2x 20, 1x 10)!`);
+      }
+
+      // Resolve Landed Tile
+      const landedTile = gameState.tiles[curPlayer.pos];
+      inspectTile(curPlayer.pos);
+
+      if (landedTile.type === "PROPERTY") {
+        if (landedTile.ownerId === -1) {
+          if (curPlayer.capital >= landedTile.cost) {
+            // Auto-buy if bot has buffer or prompt human
+            curPlayer.capital -= landedTile.cost;
+            spendPlayerCash(curPlayer, landedTile.cost);
+            landedTile.ownerId = curPlayer.id;
+            curPlayer.properties.push(landedTile.id);
+            logEvent(`🏝️ ${curPlayer.name} claimed ${landedTile.name} for $${landedTile.cost}!`);
+          }
+        } else if (landedTile.ownerId !== curPlayer.id) {
+          const owner = gameState.players[landedTile.ownerId];
+          const rent = landedTile.state === "FORTIFIED" ? landedTile.fortifiedRent : landedTile.rent;
+          if (landedTile.state !== "RUINED" && !landedTile.isMortgaged) {
+            // Pay rent with Ministry 5% cut
+            let ministryFee = 0;
+            if (gameState.financeManagerId !== -1 && gameState.financeManagerId !== curPlayer.id) {
+              ministryFee = Math.max(1, Math.floor(rent * 0.05));
+              const minister = gameState.players[gameState.financeManagerId];
+              minister.capital += ministryFee;
+              addPlayerCash(minister, ministryFee);
+            }
+            const netRent = rent - ministryFee;
+            curPlayer.capital -= rent;
+            spendPlayerCash(curPlayer, rent);
+            owner.capital += netRent;
+            addPlayerCash(owner, netRent);
+
+            logEvent(`💰 ${curPlayer.name} paid $${netRent} rent to ${owner.name}${ministryFee > 0 ? ` [🏛️ $${ministryFee} cut to Minister]` : ''}`);
+          }
+        }
+      } else if (landedTile.type === "LICENSE") {
+        if (curPlayer.capital >= landedTile.cost && gameState.financeManagerId !== curPlayer.id) {
+          curPlayer.capital -= landedTile.cost;
+          spendPlayerCash(curPlayer, landedTile.cost);
+          gameState.financeManagerId = curPlayer.id;
+          logEvent(`🏛️ ${curPlayer.name} acquired the FINANCE MANAGER LICENSE (5% royalties on all rents & loans)!`);
+        }
+      } else if (landedTile.type === "EVENT") {
+        triggerEvent(curPlayer);
+      }
+
+      renderUI();
+
+      // If next players are Bots, auto-trigger next turn after delay
+      document.getElementById('end-turn-btn').classList.add('ring-2', 'ring-orange-500');
+    }
+
+    function spendPlayerCash(player, amount) {
+      // Greedily decrement notes
+      let rem = amount;
+      [500, 100, 50, 20, 10, 5, 1].forEach(d => {
+        const take = Math.min(player.notes[d] || 0, Math.floor(rem / d));
+        player.notes[d] -= take;
+        rem -= take * d;
+      });
+      // If remainder exists, break larger note
+      if (rem > 0) {
+        for (let d of [5, 10, 20, 50, 100, 500]) {
+          if (player.notes[d] > 0) {
+            player.notes[d]--;
+            const change = d - rem;
+            addPlayerCash(player, change);
+            break;
+          }
+        }
+      }
+    }
+
+    function addPlayerCash(player, amount) {
+      let rem = amount;
+      [500, 100, 50, 20, 10, 5, 1].forEach(d => {
+        const add = Math.floor(rem / d);
+        player.notes[d] = (player.notes[d] || 0) + add;
+        rem %= d;
+      });
+    }
+
+    function triggerEvent(player) {
+      const events = [
+        () => {
+          // Cyclone ruins prime property
+          const ownedProps = gameState.tiles.filter(t => t.type === "PROPERTY" && t.ownerId !== -1 && t.state !== "RUINED");
+          if (ownedProps.length > 0) {
+            ownedProps[0].state = "RUINED";
+            logEvent(`⚡ Cyclone devastated ${ownedProps[0].name} into [RUINED]!`);
+          }
+        },
+        () => {
+          player.capital += 150;
+          addPlayerCash(player, 150);
+          logEvent(`📦 ${player.name} salvaged a floating cargo crate with +$150 Capital!`);
+        },
+        () => {
+          gameState.players.forEach(p => { p.capital = Math.max(0, p.capital - 40); spendPlayerCash(p, 40); });
+          logEvent(`🦟 Ration Spoilage: All survivors paid $40 in emergency supplies.`);
+        }
+      ];
+      events[Math.floor(Math.random() * events.length)]();
+    }
+
+    function endTurnAction() {
+      // Advance turn: Red (0) -> Blue (1) -> Green (2) -> Gold (3)
+      gameState.currentTurnIndex = (gameState.currentTurnIndex + 1) % 4;
+      if (gameState.currentTurnIndex === 0) {
+        gameState.round++;
+        logEvent(`>>> === LAP #${gameState.round} COMMENCED === <<<`);
+      }
+      renderUI();
+
+      // Camera auto-follow if option chosen
+      if (document.getElementById('camera-select').value === "follow") {
+        const curPlayer = gameState.players[gameState.currentTurnIndex];
+        const coords = getTileCoordinates(curPlayer.pos);
+        controls.target.set(coords.x, 2, coords.z);
+      }
+
+      // If next player is Bot, auto-play after 800ms
+      const cur = gameState.players[gameState.currentTurnIndex];
+      if (cur.isBot && !cur.isBankrupt) {
+        setTimeout(rollDiceAction, 800);
+      }
+    }
+
+    // =========================================================================
+    // 5. C++ ENGINE BRIDGE (FETCH EXPORT_STATE.JSON)
+    // =========================================================================
+    async function syncFromExportState() {
+      try {
+        const response = await fetch('export_state.json?t=' + Date.now());
+        if (!response.ok) throw new Error("export_state.json not reachable via HTTP");
+        const data = await response.json();
+
+        // Ingest state into visual board
+        gameState.round = data.round || gameState.round;
+        gameState.currentTurnIndex = data.currentTurnIndex !== undefined ? data.currentTurnIndex : gameState.currentTurnIndex;
+        gameState.financeManagerId = data.financeManagerId !== undefined ? data.financeManagerId : gameState.financeManagerId;
+
+        if (data.players && data.players.length === 4) {
+          data.players.forEach((p, i) => {
+            gameState.players[i].name = p.name;
+            gameState.players[i].pos = p.position;
+            gameState.players[i].capital = p.capital;
+            gameState.players[i].isBankrupt = p.isBankrupt;
+            gameState.players[i].notes = p.notes || gameState.players[i].notes;
+            gameState.players[i].properties = p.ownedProperties || [];
+
+            // Move pawn
+            const coords = getTileCoordinates(p.position);
+            const offset = getPawnOffset(i);
+            playerPawnMeshes[i].position.set(coords.x + offset.x, coords.y + 0.5, coords.z + offset.z);
+          });
+        }
+
+        if (data.tiles) {
+          data.tiles.forEach((t, i) => {
+            if (gameState.tiles[i]) {
+              gameState.tiles[i].ownerId = t.ownerId;
+              gameState.tiles[i].state = t.state;
+              gameState.tiles[i].isMortgaged = t.isMortgaged;
+            }
+          });
+        }
+
+        if (data.recentEvents) {
+          gameState.recentEvents = data.recentEvents;
+        }
+
+        renderUI();
+        logEvent("🔄 Successfully synchronized with C++ Engine state!");
+      } catch (err) {
+        logEvent("⚠️ Could not fetch export_state.json. Running in standalone 3D interactive mode.");
+      }
+    }
+
+    // =========================================================================
+    // 6. EVENT LISTENERS & BOOTSTRAP
+    // =========================================================================
+    document.getElementById('roll-btn').addEventListener('click', rollDiceAction);
+    document.getElementById('end-turn-btn').addEventListener('click', endTurnAction);
+    document.getElementById('sync-btn').addEventListener('click', syncFromExportState);
+
+    // Camera presets
+    document.getElementById('camera-select').addEventListener('change', (e) => {
+      const mode = e.target.value;
+      if (mode === "topdown") {
+        camera.position.set(0, 68, 0.1);
+        controls.target.set(0, 0, 0);
+      } else if (mode === "isometric") {
+        camera.position.set(0, 38, 46);
+        controls.target.set(0, 0, 0);
+      }
+    });
+
+    document.getElementById('reset-cam-btn').addEventListener('click', () => {
+      camera.position.set(0, 38, 46);
+      controls.target.set(0, 0, 0);
+    });
+
+    // Fortify button
+    document.getElementById('fortify-btn').addEventListener('click', () => {
+      const cur = gameState.players[gameState.currentTurnIndex];
+      const eligible = cur.properties.map(id => gameState.tiles[id]).filter(t => t.state === "PRISTINE");
+      if (eligible.length > 0) {
+        const target = eligible[0];
+        target.state = "FORTIFIED";
+        cur.capital -= 50;
+        spendPlayerCash(cur, 50);
+        logEvent(`🏰 ${cur.name} FORTIFIED ${target.name}! Rent escalated to $${target.fortifiedRent}.`);
+        renderUI();
+      } else {
+        logEvent("No eligible PRISTINE sectors available to fortify.");
+      }
+    });
+
+    // Repair button
+    document.getElementById('repair-btn').addEventListener('click', () => {
+      const cur = gameState.players[gameState.currentTurnIndex];
+      const ruined = cur.properties.map(id => gameState.tiles[id]).filter(t => t.state === "RUINED");
+      if (ruined.length > 0) {
+        const target = ruined[0];
+        target.state = "PRISTINE";
+        cur.capital -= 35;
+        spendPlayerCash(cur, 35);
+        logEvent(`🔧 ${cur.name} repaired ${target.name} to [PRISTINE] for $35!`);
+        renderUI();
+      } else {
+        logEvent("You have no ruined sectors to repair.");
+      }
+    });
+
+    // Keyboard Space to roll
+    window.addEventListener('keydown', (e) => {
+      if (e.code === 'Space') {
+        e.preventDefault();
+        rollDiceAction();
+      }
+    });
+
+    // Initialize 3D world on load
+    window.addEventListener('DOMContentLoaded', () => {
+      init3D();
+      renderUI();
+      // Try initial sync if available
+      syncFromExportState();
+    });
+  </script>
+</body>
+</html>

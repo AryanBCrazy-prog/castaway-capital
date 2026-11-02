@@ -1,0 +1,6 @@
+# Temporary build artifacts & caches
+*.log
+*.tmp
+__pycache__/
+.vscode/
+.idea/
