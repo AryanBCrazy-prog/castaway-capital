@@ -1,64 +1,99 @@
 # Castaway Capital: Island of Ruin 🏝️
 
-An interactive, turn-based survival-monopoly simulation engine built in **Modern C++20**, paired with a **real-time 3D Three.js browser visualization**.
+[![C++ Standard](https://img.shields.io/badge/Language-Modern%20C%2B%2B20-blue.svg)](https://en.cppreference.com/w/cpp/20)
+[![Three.js](https://img.shields.io/badge/3D%20Engine-Three.js%20r128-black.svg)](https://threejs.org/)
+[![Multiplayer](https://img.shields.io/badge/Networking-WebSockets%20Realtime-green.svg)](https://www.tornadoweb.org/)
+[![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/template)
+
+An interactive, turn-based survival-monopoly simulation engine and online multiplayer game. Features an authoritative real-time WebSocket game server, room-code matchmaking, realistic physical note currency mechanics, and a 3D Three.js WebGL island board.
 
 ---
 
-## 🏛️ System Architecture & Object-Oriented Design
+## 🌟 Key Features
 
-- **`Tile.hpp` / `Tile.cpp`**: Abstract `Tile` base class with polymorphic `onLand(Player&, GameEngine&)` method.
-  - `BaseCampTile`: Safe havens (Go / Outpost Bravo) distributing structured note salaries ($200 per lap).
-  - `PropertyTile`: Island sectors with dynamic states (`RUINED`, `PRISTINE`, `FORTIFIED`).
-  - `UtilityTile` ("Max Autos"): Transit routes enabling Fixed Toll collection and tactical 1d6 dice sabotage.
-  - `LicenseTile` ("Ministry of Finance"): Allows acquiring the coveted Finance Manager License.
-  - `EventTile` ("Island Calamity"): Triggers randomized disasters and salvage events from the Calamity Deck.
-- **`Wallet.hpp` / `Wallet.cpp`**: Realistic physical currency wallet tracking 7 colorful note tiers (500, 100, 50, 20, 10, 5, 1) with an automated change-making algorithm and bank note breakdowns.
-- **`Player.hpp` / `Player.cpp`**: Encapsulates survivor state, physical wallet note counts, owned sectors, mortgages, and AI heuristic routines.
-- **`Board.hpp` / `Board.cpp`**: 24-sector circular island board managing `std::unique_ptr<Tile>` instances with zero raw pointer leaks.
-- **`GameEngine.hpp` / `GameEngine.cpp`**: Strict 4-player turn controller, dice rolling, Max Autos tampering, 5% Ministry cuts, calamity card resolution, trading, bankruptcy, and real-time JSON state export (`export_state.json`).
-- **`index.html`**: Interactive 3D WebGL Island Board using Three.js and OrbitControls. Displays 3D terrain, modular tile meshes, animated hopping pawns, physical note wallets, and interactive action controls.
-- **`server.py`**: Lightweight local server providing instant state synchronization without CORS limitations.
-- **`main.cpp`**: Terminal entry point supporting Human and AI survivors with ANSI color formatting.
+- **🌐 Live Online Multiplayer:** Play with friends anywhere in the world. Create a private room, copy a 1-click invite link (`?room=CODE`), and pick your survivor color (Red, Blue, Green, Gold).
+- **🤖 Autonomous Heuristic AI:** Any unclaimed player slot is seamlessly piloted by AI survivor bots that balance capital reserves, repair ruined sectors, upgrade strongholds, and sabotage opponents.
+- **🎮 3D WebGL Island World:** Built with Three.js and OrbitControls. Features procedural tropical terrain, beaches, jungle foliage, and a smoking volcano caldera with glowing lava.
+- **♟️ Animated 3D Pawns:** Real-time parabolic jumping arcs as dice are rolled across the 24 circular island sectors.
+- **💵 Physical Currency Wallet:** 7 colorful note denominations (500, 100, 50, 20, 10, 5, 1) with an automatic bank change-making algorithm.
+- **🏛️ Ministry of Finance:** Land on government sectors to acquire the Finance Manager License and automatically skim a 5% royalty on all rents and loans across the island.
+- **🏎️ Max Autos Monopoly:** Transit routes grant fixed tolls and unlock tactical **Dice Tampering** (force an opponent to roll a single 1d6 instead of 2d6).
+- **⚡ Island Calamity Deck:** Randomized natural disasters (Tsunamis, Ashfall, Cyclones, Malaria) that degrade upgraded sectors into `RUINED` status.
 
 ---
 
-## ⚙️ Core Mechanics
+## 🚆 Deploying to Railway (Public Online Server)
 
-1. **Strict 4-Player Turn Cycle:**
-   - Player 1 (Red) -> Player 2 (Blue) -> Player 3 (Green) -> Player 4 (Gold) -> Lap Increment.
-   - Starting Bankroll: 1,500 Credits in physical notes.
-   - Base Camp Salary: Passing or landing on Base Camp Alpha awards 200 Credits in structured notes (1x 100, 1x 50, 2x 20, 1x 10).
-2. **Physical Note Denominations & Change-Making:**
-   - 7 colorful note tiers: 500 (Purple), 100 (Teal), 50 (Orange), 20 (Green), 10 (Yellow), 5 (Pink), 1 (White).
-   - Automatic bank note breakdowns when exact change is unavailable.
-3. **The Finance Manager License:**
-   - Landing on the Ministry of Finance allows purchasing the license for $250.
-   - Automatically skims a **5% cut** on all rents paid between other players and on all asset loans (mortgages).
-4. **Max Autos / Transit Monopoly:**
-   - Owning a Max Autos route grants **Fixed Tolls** when opponents pass through.
-   - Unlocks **Dice Tampering**: Once per round per utility owned, the owner can sabotage an approaching opponent's vehicle, restricting their roll to a **single 1d6** instead of 2d6.
-5. **Pristine Assets vs. Ruined Assets:**
-   - Properties hold 3 distinct states:
-     - `RUINED`: Generates zero rent; costs a repair fee to restore.
-     - `PRISTINE`: Generates base sector rent; can be upgraded.
-     - `FORTIFIED`: Upgraded with permanent strongholds for high rent.
-   - **Island Calamity Deck**: Calamity hazards degrade sectors into `RUINED` status or demand emergency survival taxes.
+Deploy this project on [Railway](https://railway.app) for free to get a public `https://...up.railway.app` URL with live WebSocket support.
+
+### Step-by-Step Deployment:
+
+1. **Sign in to Railway:**
+   - Go to [railway.app](https://railway.app) and sign in using your GitHub account.
+
+2. **Create New Project from GitHub:**
+   - Click **New Project** ➡️ **Deploy from GitHub repo**.
+   - Select your repository: **`AryanBCrazy-prog/castaway-capital`**.
+
+3. **Automatic Configuration:**
+   - Railway will automatically detect [`railway.json`](railway.json) and [`Procfile`](Procfile).
+   - It will install dependencies from [`requirements.txt`](requirements.txt) (`tornado>=6.2`) and launch `python server.py`.
+
+4. **Generate Public Domain:**
+   - Once the service deploys, click on the **Service box** in your Railway canvas.
+   - Go to **Settings** ➡️ **Networking** ➡️ Click **Generate Domain**.
+   - Railway will issue your public live HTTPS URL (e.g., `https://castaway-capital-production.up.railway.app`).
+
+5. **Play Online with Friends:**
+   - Open your Railway domain in any browser.
+   - Click **Create Room**, copy the shareable room link, and send it to your friends to play!
 
 ---
 
-## 🚀 How to Run
+## 💻 Local Quickstart
 
-### 🌐 Method 1: Interactive 3D Browser App (Recommended)
-Double-click `launch_3d_app.bat` or run:
+### Option 1: 3D Multiplayer Web App (Local)
+Run the Python multiplayer WebSocket server:
 ```powershell
 python server.py
 ```
-Open **http://localhost:8080** in your web browser.
+Open your browser at **http://localhost:8080**.
 
-### 💻 Method 2: C++ Engine (Console Simulation)
-- To compile: run `build.bat`
-- To launch: run `run.bat` or double-click `CastawayCapital.exe`.
+### Option 2: C++ Engine (Console Simulation)
+Compile and run the native C++20 engine:
 ```cmd
-cl /EHsc /std:c++20 /W4 /O2 /Fe:CastawayCapital.exe main.cpp GameEngine.cpp Board.cpp Player.cpp Tile.cpp Wallet.cpp
+call build.bat
 CastawayCapital.exe
 ```
+*(Compiled with MSVC `cl.exe /EHsc /std:c++20 /W4 /O2` with zero raw pointer leaks).*
+
+---
+
+## 📁 Repository Structure
+
+```
+├── server.py           <- Python asynchronous WebSocket multiplayer game server
+├── index.html          <- 3D WebGL Three.js client with OrbitControls & HUD
+├── railway.json        <- Railway deployment configuration
+├── Procfile            <- Process runner for cloud hosts (Railway / Render / Heroku)
+├── requirements.txt    <- Python cloud dependencies (tornado)
+├── Dockerfile          <- Universal container deployment
+├── render.yaml         <- Render.com cloud deployment blueprint
+├── launch_3d_app.bat   <- Windows one-click local server launcher
+│
+├── Enums.hpp           <- Shared sector groups, property states, ANSI styles
+├── Tile.hpp / .cpp     <- Polymorphic Tile hierarchy (Property, Utility, License, Event, BaseCamp)
+├── Wallet.hpp / .cpp   <- Physical currency wallet with bank change-maker
+├── Player.hpp / .cpp   <- Survivor state, note counts, bot heuristics
+├── Board.hpp / .cpp    <- 24-sector circular island board layout
+├── GameEngine.hpp/.cpp <- Turn controller, dice mechanics, 5% cuts, state exporter
+├── main.cpp            <- C++ native terminal entry point
+├── build.bat           <- MSVC C++20 compiler script
+└── export_state.json   <- Real-time engine state bridge
+```
+
+---
+
+## 📜 License
+
+Distributed under the MIT License. See `LICENSE` for more information.
