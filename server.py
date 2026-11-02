@@ -28,7 +28,7 @@ load_dotenv()
 # Sarvam AI Initialization
 SARVAM_API_KEY = os.environ.get("SARVAM_API_KEY", "").strip()
 sarvam_client = None
-if SARVAM_API_KEY:
+if SARVAM_API_KEY and SARVAM_API_KEY != "your_actual_new_api_key_here":
     try:
         from sarvamai import SarvamAI
         sarvam_client = SarvamAI(api_subscription_key=SARVAM_API_KEY)
@@ -36,7 +36,7 @@ if SARVAM_API_KEY:
     except Exception as e:
         print(f">> Warning: Failed to initialize SarvamAI client: {e}")
 else:
-    print(">> Note: SARVAM_API_KEY not found in environment. TTS will run in mock/silent mode.")
+    print(">> Note: SARVAM_API_KEY is unset or placeholder in .env. TTS will run in mock/silent mode.")
 
 # In-memory audio cache: (text, language_code, speaker) -> base64 audio
 TTS_CACHE = {}
