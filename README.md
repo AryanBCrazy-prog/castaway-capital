@@ -41,6 +41,34 @@
 
 ---
 
+## 🏗️ Architecture & Voice Workflow
+
+```mermaid
+flowchart LR
+    A["🎲 Game Event<br>(Calamity / License / Lap)"] --> B["GameRoom Engine<br>(server.py)"]
+    B --> C{"TTS_CACHE<br>Hit?"}
+    C -- Yes --> D["< 1ms Cached<br>Base64 WAV"]
+    C -- No --> E["Sarvam AI Bulbul API<br>(bulbul:v4-flash)"]
+    E --> F["Store in TTS_CACHE"]
+    F --> D
+    D --> G["WebSocket Broadcast<br>(type: voice_announcement)"]
+    G --> H["WebGL 3D Client<br>(HTML5 Audio + Soundwave HUD)"]
+```
+
+### Voice Persona Catalog
+
+| Persona ID | Display Name | Accent / Language | Tone & Character |
+| :--- | :--- | :--- | :--- |
+| `shubh` | **Shubh** | Indian English (`en-IN`) | Dramatic Island Radio Host |
+| `ashwin_en_sports_energetic` | **Ashwin** | Indian English (`en-IN`) | Energetic Play-by-Play Sportscaster |
+| `ritu` | **Ritu** | Indian English (`en-IN`) | Expressive Island Guide & Dispatch |
+| `aditya` | **Aditya** | Indian English (`en-IN`) | Formal Ministry of Finance Overseer |
+| `priya` | **Priya** | Indian English (`en-IN`) | Calm Island Dispatcher |
+| `shubh` | **Shubh (हिंदी)** | Hindi (`hi-IN`) | Energetic Hindi Island Commentary |
+| `ritu` | **Ritu (हिंदी)** | Hindi (`hi-IN`) | Crisp Hindi Island Radio Bulletin |
+
+---
+
 ## 🔑 Setting up Sarvam AI
 
 1. Obtain your API key from the [Sarvam AI Dashboard](https://dashboard.sarvam.ai/).
